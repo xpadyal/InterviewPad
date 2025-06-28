@@ -486,6 +486,12 @@ export default function CodeEditor() {
       <header className={styles.header}>
         <span className={styles.brand}>InterviewPad</span>
         <div>
+          <a href="/" className={styles.navLink} style={{ marginRight: '1rem', color: '#fff', textDecoration: 'none', padding: '0.5rem 1rem', borderRadius: 8, background: 'rgba(255,255,255,0.1)', transition: 'background 0.3s ease' }}>
+            🏠 Home
+          </a>
+          <a href="/behavioral" className={styles.navLink} style={{ marginRight: '1rem', color: '#fff', textDecoration: 'none', padding: '0.5rem 1rem', borderRadius: 8, background: 'rgba(255,255,255,0.1)', transition: 'background 0.3s ease' }}>
+            🎯 Behavioral
+          </a>
           <select
             className={styles.languageSelector}
             value={selectedLanguage.id}
