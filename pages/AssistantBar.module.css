@@ -1,0 +1,79 @@
+.assistantBar {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: var(--bg-panel, #23232b);
+  border-top: 1px solid var(--border, #31313a);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1rem 2rem 1rem 2rem;
+  z-index: 100;
+  box-shadow: 0 -2px 12px 0 rgba(0,0,0,0.08);
+}
+
+.hintButton {
+  background: linear-gradient(90deg, var(--accent, #6366f1), var(--accent2, #a21caf));
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+  box-shadow: 0 2px 8px 0 rgba(99,102,241,0.10);
+}
+.hintButton:active {
+  opacity: 0.85;
+}
+
+.criticButton {
+  background: linear-gradient(90deg, #f59e42 10%, #f43f5e 100%);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-left: 0.5rem;
+  box-shadow: 0 2px 8px 0 rgba(244,63,94,0.10);
+}
+.criticButton:active {
+  opacity: 0.85;
+}
+
+.completeButton {
+  background: linear-gradient(90deg, #06b6d4 10%, #22d3ee 100%);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-left: 0.5rem;
+  box-shadow: 0 2px 8px 0 rgba(6,182,212,0.10);
+}
+.completeButton:active {
+  opacity: 0.85;
+}
+
+.hintArea {
+  color: var(--text-main, #f3f4f6);
+  font-size: 1.05rem;
+  font-family: inherit;
+  padding: 0.5rem 1.5rem;
+  background: var(--bg-header, #23232b);
+  border-radius: 8px;
+  min-width: 200px;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 1px 4px 0 rgba(0,0,0,0.04);
+} 

@@ -1,0 +1,84 @@
+.questionPanel {
+  background: var(--bg-panel, #23232b);
+  border: 1px solid var(--border, #31313a);
+  border-radius: 16px;
+  box-shadow: 0 4px 24px 0 rgba(0,0,0,0.10);
+  padding: 2rem 2.5rem;
+  margin-bottom: 2rem;
+  color: var(--text-main, #f3f4f6);
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.questionTitle {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  color: var(--accent, #6366f1);
+}
+
+.questionDescription {
+  font-size: 1.1rem;
+  margin-bottom: 1.2rem;
+  line-height: 1.6;
+}
+
+.constraints {
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  color: var(--text-secondary, #a1a1aa);
+}
+
+.examples {
+  margin-bottom: 0.5rem;
+}
+
+.exampleBox {
+  background: var(--bg-header, #23232b);
+  border-radius: 8px;
+  padding: 1rem 1.2rem;
+  margin-bottom: 0.7rem;
+  border-left: 4px solid var(--accent, #6366f1);
+  color: var(--text-main, #f3f4f6);
+}
+
+.exampleInput {
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  color: #fbbf24;
+}
+
+.exampleOutput {
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  color: #22d3ee;
+}
+
+.exampleExplanation {
+  color: var(--text-secondary, #a1a1aa);
+  font-size: 0.98rem;
+  margin-top: 0.3rem;
+}
+
+.questionTabs {
+  display: flex;
+  gap: 1.2rem;
+  margin-bottom: 1.2rem;
+  border-bottom: 2px solid var(--border, #31313a);
+}
+
+.questionTab {
+  font-size: 1.08rem;
+  font-weight: 500;
+  color: var(--text-secondary, #a1a1aa);
+  background: none;
+  border: none;
+  padding: 0.5rem 0.2rem 0.7rem 0.2rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.18s, border-color 0.18s;
+}
+
+.questionTabActive {
+  color: var(--accent, #6366f1);
+  border-bottom: 2px solid var(--accent, #6366f1);
+} 
