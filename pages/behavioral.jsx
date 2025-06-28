@@ -5,6 +5,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import VoiceInput from './VoiceInput';
 import VoiceAgent from './VoiceAgent';
+import Modal from './Modal';
 
 // Behavioral question categories
 const categories = [
@@ -15,7 +16,8 @@ const categories = [
   { id: 'adaptability', name: 'Adaptability', icon: '🔄', description: 'Handling change and learning new skills' },
   { id: 'teamwork', name: 'Teamwork', icon: '👥', description: 'Collaboration and team dynamics' },
   { id: 'stress', name: 'Stress Management', icon: '😰', description: 'Working under pressure and deadlines' },
-  { id: 'initiative', name: 'Initiative', icon: '🚀', description: 'Taking ownership and driving projects' }
+  { id: 'initiative', name: 'Initiative', icon: '🚀', description: 'Taking ownership and driving projects' },
+  { id: 'resume', name: 'Resume Interview', icon: '📄', description: 'Questions based on your resume and experience' }
 ];
 
 export default function BehavioralInterview() {
@@ -49,6 +51,32 @@ export default function BehavioralInterview() {
   // Error state
   const [error, setError] = useState(null);
 
+  // Resume and job description state
+  const [resumeFile, setResumeFile] = useState(null);
+  const [resumeText, setResumeText] = useState('');
+  const [jobDescFile, setJobDescFile] = useState(null);
+  const [jobDescText, setJobDescText] = useState('');
+  const [fileError, setFileError] = useState(null);
+
+  // Resume modal state
+  const [showResumeModal, setShowResumeModal] = useState(false);
+  const [modalResumeFile, setModalResumeFile] = useState(null);
+  const [modalResumeText, setModalResumeText] = useState('');
+  const [modalJobDescText, setModalJobDescText] = useState('');
+  const [modalFileError, setModalFileError] = useState(null);
+
+  // Initialize PDF.js on client side only
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const initPDF = async () => {
+        const { GlobalWorkerOptions } = await import('pdfjs-dist/build/pdf');
+        // Use CDN worker for better compatibility
+        GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      };
+      initPDF();
+    }
+  }, []);
+
   // Timer effect
   useEffect(() => {
     if (interviewStarted && !interviewComplete) {
@@ -74,6 +102,16 @@ export default function BehavioralInterview() {
   };
 
   const handleCategoryToggle = (categoryId) => {
+    if (categoryId === 'resume') {
+      setShowResumeModal(true);
+      return;
+    }
+    
+    // If Resume Interview is selected, prevent other categories from being selected
+    if (selectedCategories.includes('resume') && categoryId !== 'resume') {
+      return;
+    }
+    
     setSelectedCategories(prev => 
       prev.includes(categoryId) 
         ? prev.filter(id => id !== categoryId)
@@ -120,13 +158,25 @@ export default function BehavioralInterview() {
     setQuestionLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/behavioral-questions', {
+      // Determine which API to use based on selected categories
+      const isResumeInterview = selectedCategories.includes('resume');
+      const apiEndpoint = isResumeInterview ? '/api/resume-questions' : '/api/behavioral-questions';
+      
+      const requestBody = isResumeInterview 
+        ? {
+            resumeText: resumeText,
+            jobDescription: jobDescText,
+            count: totalQuestions
+          }
+        : {
+            categories: selectedCategories,
+            count: totalQuestions
+          };
+
+      const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          categories: selectedCategories,
-          count: totalQuestions
-        })
+        body: JSON.stringify(requestBody)
       });
       
       if (!response.ok) {
@@ -202,15 +252,30 @@ export default function BehavioralInterview() {
     setFeedbackLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/behavioral-feedback', {
+      // Determine which API to use based on selected categories
+      const isResumeInterview = selectedCategories.includes('resume');
+      const apiEndpoint = isResumeInterview ? '/api/resume-feedback' : '/api/behavioral-feedback';
+      
+      const requestBody = isResumeInterview 
+        ? {
+            question: currentQuestion,
+            response: currentResponse,
+            resumeText: resumeText,
+            jobDescription: jobDescText,
+            followUpQuestions: followUpQuestions,
+            followUpResponses: followUpResponses
+          }
+        : {
+            question: currentQuestion,
+            response: currentResponse,
+            followUpQuestions: followUpQuestions,
+            followUpResponses: followUpResponses
+          };
+
+      const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question: currentQuestion,
-          response: currentResponse,
-          followUpQuestions: followUpQuestions,
-          followUpResponses: followUpResponses
-        })
+        body: JSON.stringify(requestBody)
       });
       
       if (!response.ok) {
@@ -310,6 +375,141 @@ export default function BehavioralInterview() {
     setError(null);
   };
 
+  // Helper: Read file as text
+  const readFileAsText = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.onerror = (e) => reject(e);
+      reader.readAsText(file);
+    });
+  };
+
+  // Helper: Read PDF as text
+  const readPdfAsText = async (file) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let text = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      text += content.items.map(item => item.str).join(' ') + '\n';
+    }
+    return text;
+  };
+
+  // Handle resume upload
+  const handleResumeUpload = async (e) => {
+    setFileError(null);
+    const file = e.target.files[0];
+    if (!file) return;
+    setResumeFile(file);
+    try {
+      let text = '';
+      if (file.type === 'application/pdf') {
+        text = await readPdfAsText(file);
+      } else if (file.type === 'text/plain') {
+        text = await readFileAsText(file);
+      } else {
+        setFileError('Only PDF or plain text files are supported for now.');
+        setResumeText('');
+        return;
+      }
+      setResumeText(text);
+    } catch (err) {
+      setFileError('Failed to read resume file.');
+      setResumeText('');
+    }
+  };
+
+  // Handle job description upload
+  const handleJobDescUpload = async (e) => {
+    setFileError(null);
+    const file = e.target.files[0];
+    if (!file) return;
+    setJobDescFile(file);
+    try {
+      let text = '';
+      if (file.type === 'application/pdf') {
+        text = await readPdfAsText(file);
+      } else if (file.type === 'text/plain') {
+        text = await readFileAsText(file);
+      } else {
+        setFileError('Only PDF or plain text files are supported for now.');
+        setJobDescText('');
+        return;
+      }
+      setJobDescText(text);
+    } catch (err) {
+      setFileError('Failed to read job description file.');
+      setJobDescText('');
+    }
+  };
+
+  // Modal resume upload handler
+  const handleModalResumeUpload = async (e) => {
+    setModalFileError(null);
+    const file = e.target.files[0];
+    if (!file) return;
+    setModalResumeFile(file);
+    try {
+      let text = '';
+      if (file.type === 'application/pdf') {
+        text = await readPdfAsText(file);
+      } else if (file.type === 'text/plain') {
+        text = await readFileAsText(file);
+      } else {
+        setModalFileError('Only PDF or plain text files are supported for now.');
+        setModalResumeText('');
+        return;
+      }
+      setModalResumeText(text);
+    } catch (err) {
+      setModalFileError('Failed to read resume file.');
+      setModalResumeText('');
+    }
+  };
+
+  // Confirm modal and add resume category
+  const confirmResumeModal = () => {
+    if (!modalResumeText.trim()) {
+      setModalFileError('Please upload a resume first.');
+      return;
+    }
+    
+    // Add resume category and set the resume data
+    setSelectedCategories(prev => 
+      prev.includes('resume') ? prev : [...prev, 'resume']
+    );
+    setResumeFile(modalResumeFile);
+    setResumeText(modalResumeText);
+    setJobDescText(modalJobDescText);
+    
+    // Close modal and reset modal state
+    setShowResumeModal(false);
+    setModalResumeFile(null);
+    setModalResumeText('');
+    setModalJobDescText('');
+    setModalFileError(null);
+  };
+
+  // Cancel modal
+  const cancelResumeModal = () => {
+    setShowResumeModal(false);
+    setModalResumeFile(null);
+    setModalResumeText('');
+    setModalJobDescText('');
+    setModalFileError(null);
+  };
+
+  // Remove Resume Interview category
+  const removeResumeCategory = () => {
+    setSelectedCategories(prev => prev.filter(id => id !== 'resume'));
+    setResumeFile(null);
+    setResumeText('');
+    setJobDescText('');
+  };
+
   return (
     <div className={styles.container}>
       <Navigation />
@@ -353,14 +553,33 @@ export default function BehavioralInterview() {
                     key={category.id}
                     className={`${styles.categoryCard} ${
                       selectedCategories.includes(category.id) ? styles.selected : ''
-                    }`}
+                    } ${category.id === 'resume' && resumeText && jobDescText ? styles.resumeComplete : ''}`}
                     onClick={() => handleCategoryToggle(category.id)}
+                    style={{
+                      opacity: selectedCategories.includes('resume') && category.id !== 'resume' ? 0.5 : 1,
+                      cursor: selectedCategories.includes('resume') && category.id !== 'resume' ? 'not-allowed' : 'pointer'
+                    }}
                   >
                     <div className={styles.categoryIcon}>{category.icon}</div>
                     <div className={styles.categoryInfo}>
                       <h3>{category.name}</h3>
                       <p>{category.description}</p>
                     </div>
+                    {category.id === 'resume' && resumeText && jobDescText && (
+                      <div className={styles.resumeTick}>✅</div>
+                    )}
+                    {category.id === 'resume' && selectedCategories.includes('resume') && (
+                      <button 
+                        className={styles.removeResumeButton}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeResumeCategory();
+                        }}
+                        title="Remove Resume Interview"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -555,6 +774,12 @@ export default function BehavioralInterview() {
                           </div>
                         </>
                       )}
+                      {responseFeedback.resumeAlignment && (
+                        <>
+                          <h5>Resume Alignment:</h5>
+                          <p>{responseFeedback.resumeAlignment}</p>
+                        </>
+                      )}
                       {responseFeedback.followUpAnalysis && (
                         <>
                           <h5>Follow-up Analysis:</h5>
@@ -642,6 +867,71 @@ export default function BehavioralInterview() {
           </div>
         )}
       </div>
+      
+      {/* Resume Interview Modal */}
+      <Modal
+        open={showResumeModal}
+        onClose={cancelResumeModal}
+        title="Resume Interview Setup"
+      >
+        <div className={styles.modalContent}>
+          <div className={styles.modalSection}>
+            <h3>Upload Your Resume</h3>
+            <p>Upload your resume (PDF or TXT) to get personalized interview questions based on your experience.</p>
+            <div className={styles.modalUploadField}>
+              <input 
+                type="file" 
+                accept=".pdf,.txt" 
+                onChange={handleModalResumeUpload}
+                className={styles.modalFileInput}
+              />
+              {modalResumeFile && (
+                <div className={styles.modalFileInfo}>
+                  <span className={styles.modalFileName}>{modalResumeFile.name}</span>
+                  <button 
+                    className={styles.modalRemoveButton} 
+                    onClick={() => { setModalResumeFile(null); setModalResumeText(''); }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className={styles.modalSection}>
+            <h3>Job Description (Optional)</h3>
+            <p>Add the job description to get more targeted questions.</p>
+            <textarea
+              value={modalJobDescText}
+              onChange={(e) => setModalJobDescText(e.target.value)}
+              placeholder="Paste the job description here..."
+              className={styles.modalTextarea}
+              rows={6}
+            />
+          </div>
+
+          {modalFileError && (
+            <div className={styles.modalError}>{modalFileError}</div>
+          )}
+
+          <div className={styles.modalActions}>
+            <button 
+              className={styles.modalCancelButton} 
+              onClick={cancelResumeModal}
+            >
+              Cancel
+            </button>
+            <button 
+              className={styles.modalConfirmButton} 
+              onClick={confirmResumeModal}
+              disabled={!modalResumeText.trim()}
+            >
+              Confirm & Add Resume Interview
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 } 
