@@ -69,9 +69,11 @@ export default function BehavioralInterview() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const initPDF = async () => {
-        const { GlobalWorkerOptions } = await import('pdfjs-dist/build/pdf');
+        const { GlobalWorkerOptions, getDocument } = await import('pdfjs-dist/build/pdf');
         // Use CDN worker for better compatibility
         GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        // Make getDocument available globally
+        window.pdfjsLib = { getDocument };
       };
       initPDF();
     }
@@ -387,15 +389,48 @@ export default function BehavioralInterview() {
 
   // Helper: Read PDF as text
   const readPdfAsText = async (file) => {
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    let text = '';
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      text += content.items.map(item => item.str).join(' ') + '\n';
+    try {
+      if (!window.pdfjsLib) {
+        throw new Error('PDF.js not initialized');
+      }
+      
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let text = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        text += content.items.map(item => item.str).join(' ') + '\n';
+      }
+      return text;
+    } catch (error) {
+      console.error('PDF reading error:', error);
+      
+      // Fallback: try to reinitialize PDF.js
+      if (error.message === 'PDF.js not initialized') {
+        try {
+          const { GlobalWorkerOptions, getDocument } = await import('pdfjs-dist/build/pdf');
+          GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          window.pdfjsLib = { getDocument };
+          
+          // Retry reading the PDF
+          const arrayBuffer = await file.arrayBuffer();
+          const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          let text = '';
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            text += content.items.map(item => item.str).join(' ') + '\n';
+          }
+          return text;
+        } catch (retryError) {
+          console.error('PDF retry failed:', retryError);
+          throw new Error('Failed to read PDF file. Please try uploading a text file instead.');
+        }
+      }
+      
+      throw new Error('Failed to read PDF file. Please try uploading a text file instead.');
     }
-    return text;
   };
 
   // Handle resume upload
@@ -452,6 +487,10 @@ export default function BehavioralInterview() {
     const file = e.target.files[0];
     if (!file) return;
     setModalResumeFile(file);
+    
+    // Show loading state
+    setModalFileError('Processing PDF... Please wait.');
+    
     try {
       let text = '';
       if (file.type === 'application/pdf') {
@@ -464,8 +503,10 @@ export default function BehavioralInterview() {
         return;
       }
       setModalResumeText(text);
+      setModalFileError(null); // Clear loading message
     } catch (err) {
-      setModalFileError('Failed to read resume file.');
+      console.error('File reading error:', err);
+      setModalFileError(err.message || 'Failed to read resume file.');
       setModalResumeText('');
     }
   };
