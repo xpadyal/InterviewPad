@@ -1,7 +1,7 @@
 import dynamic from 'next/dynamic';
 import { useState, useEffect, useRef } from 'react';
 import styles from './Editor.module.css';
-import { HintButton, CriticButton, SolveButton } from './AssistantBar';
+import { HintButton, CriticButton, SolveButton } from './components/AssistantBar';
 import QuestionPanel from './QuestionPanel';
 import Modal from './Modal';
 import Navigation from './components/Navigation';
