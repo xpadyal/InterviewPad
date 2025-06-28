@@ -10,72 +10,80 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { question, response, starStructure } = req.body;
+    const { question, response, followUpQuestions = [], followUpResponses = {} } = req.body;
 
     if (!question || !response) {
       return res.status(400).json({ error: 'Question and response are required' });
     }
 
-    // Validate STAR response structure
-    const requiredFields = ['situation', 'task', 'action', 'result'];
-    const hasAllFields = requiredFields.every(field => 
-      response[field] && response[field].trim().length > 0
-    );
+    // Build the complete response context including follow-ups
+    let completeResponse = `Original Question: ${question}\n\nCandidate's Response:\n${response}\n`;
 
-    if (!hasAllFields) {
-      return res.status(400).json({ error: 'All STAR method fields are required' });
+    // Add follow-up questions and responses if they exist
+    if (followUpQuestions.length > 0) {
+      completeResponse += `\nFollow-up Questions and Responses:\n`;
+      followUpQuestions.forEach((followUpQuestion, index) => {
+        const followUpResponse = followUpResponses[index] || 'No response provided';
+        completeResponse += `\nFollow-up ${index + 1}: ${followUpQuestion}\n`;
+        completeResponse += `Response: ${followUpResponse}\n`;
+      });
     }
 
-    const prompt = `You are an expert interview coach evaluating a behavioral interview response using the STAR method.
+    const prompt = `You are an expert HR professional and interview coach with 15+ years of experience. Evaluate the following behavioral interview response using the STAR method framework.
 
-Question: "${question}"
+${completeResponse}
 
-Candidate's Response:
-- Situation: ${response.situation}
-- Task: ${response.task}
-- Action: ${response.action}
-- Result: ${response.result}
+Please provide a comprehensive evaluation including:
 
-Please evaluate this response and provide detailed feedback. Consider:
+1. **Overall Score (1-10)**: Rate the response based on:
+   - STAR method structure and completeness (Situation, Task, Action, Result)
+   - Specificity and detail level
+   - Measurable outcomes and results
+   - Relevance to the question
+   - Quality of follow-up responses (if provided)
 
-1. **STAR Method Structure**: How well does the response follow the STAR framework?
-2. **Specificity**: Are the details specific and concrete?
-3. **Relevance**: How well does the response address the question?
-4. **Impact**: Does the candidate demonstrate measurable outcomes?
-5. **Learning**: Does the candidate show reflection and growth?
+2. **Strengths (3-5 points)**: Identify what the candidate did well
 
-Provide your evaluation in the following JSON format:
+3. **Areas for Improvement (3-5 points)**: Suggest specific ways to enhance the response
+
+4. **Detailed Feedback**: Provide actionable suggestions for improvement
+
+5. **STAR Method Analysis**: Evaluate how well the response follows the STAR framework:
+   - Situation: Clarity and context
+   - Task: Responsibility and challenge definition
+   - Action: Specific actions and approach
+   - Result: Outcomes and learnings
+
+6. **Follow-up Quality** (if applicable): Assess the depth and relevance of follow-up responses
+
+Format your response as JSON with the following structure:
 {
-  "score": <number from 1-10>,
-  "feedback": {
-    "strengths": ["strength1", "strength2", "strength3"],
-    "improvements": ["improvement1", "improvement2", "improvement3"],
-    "suggestions": "Overall suggestions for improvement"
-  }
-}
-
-Scoring criteria:
-- 9-10: Exceptional response with clear STAR structure, specific details, measurable results
-- 7-8: Good response with most STAR elements, some specific details
-- 5-6: Adequate response with basic STAR structure, needs more specificity
-- 3-4: Weak response with unclear structure or missing key elements
-- 1-2: Poor response with major gaps or off-topic content
-
-Be constructive and specific in your feedback.`;
+  "score": number (1-10),
+  "strengths": ["strength1", "strength2", "strength3"],
+  "improvements": ["improvement1", "improvement2", "improvement3"],
+  "suggestions": "Detailed feedback and suggestions for improvement",
+  "starAnalysis": {
+    "situation": "analysis of situation component",
+    "task": "analysis of task component", 
+    "action": "analysis of action component",
+    "result": "analysis of result component"
+  },
+  "followUpAnalysis": "analysis of follow-up responses if provided"
+}`;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
         {
           role: "system",
-          content: "You are an expert interview coach with 15+ years of experience in HR and talent acquisition. You specialize in behavioral interviewing and the STAR method. Provide constructive, specific feedback that helps candidates improve their interview skills."
+          content: "You are an expert HR professional and interview coach. Provide detailed, constructive feedback on behavioral interview responses. Always return valid JSON format."
         },
         {
           role: "user",
           content: prompt
         }
       ],
-      temperature: 0.3,
+      temperature: 0.7,
       max_tokens: 1500,
     });
 
@@ -86,43 +94,44 @@ Be constructive and specific in your feedback.`;
     try {
       feedback = JSON.parse(response_text);
     } catch (parseError) {
-      // Fallback if JSON parsing fails
       console.error('Failed to parse feedback JSON:', parseError);
+      // Fallback feedback structure
       feedback = {
-        score: 5,
-        feedback: {
-          strengths: ["Response shows effort in using the STAR method"],
-          improvements: ["Could provide more specific details", "Consider adding measurable outcomes"],
-          suggestions: "Try to be more specific with numbers, timelines, and concrete actions taken."
-        }
+        score: 7,
+        strengths: ["Good use of STAR method", "Clear structure", "Relevant example"],
+        improvements: ["Add more specific details", "Include measurable outcomes", "Provide more context"],
+        suggestions: "Your response shows good structure using the STAR method. Consider adding more specific details, measurable outcomes, and additional context to make your response more compelling.",
+        starAnalysis: {
+          situation: "Good context provided",
+          task: "Clear responsibility outlined", 
+          action: "Actions could be more specific",
+          result: "Results could be more measurable"
+        },
+        followUpAnalysis: followUpQuestions.length > 0 ? "Follow-up responses show engagement with the interviewer's questions." : "No follow-up questions provided."
       };
     }
 
-    // Validate feedback structure
-    if (!feedback.score || !feedback.feedback) {
-      throw new Error('Invalid feedback structure');
-    }
-
-    // Ensure score is within bounds
-    feedback.score = Math.max(1, Math.min(10, Math.round(feedback.score)));
-
-    // Ensure arrays exist
-    if (!Array.isArray(feedback.feedback.strengths)) {
-      feedback.feedback.strengths = ["Good effort in responding to the question"];
-    }
-    if (!Array.isArray(feedback.feedback.improvements)) {
-      feedback.feedback.improvements = ["Consider adding more specific details"];
-    }
-    if (!feedback.feedback.suggestions) {
-      feedback.feedback.suggestions = "Focus on providing specific examples and measurable outcomes.";
-    }
+    // Ensure score is a number and within range
+    const score = Math.min(10, Math.max(1, parseInt(feedback.score) || 7));
 
     res.status(200).json({ 
-      feedback: feedback.feedback,
-      score: feedback.score
+      feedback: {
+        score,
+        strengths: feedback.strengths || ["Good response structure"],
+        improvements: feedback.improvements || ["Could provide more detail"],
+        suggestions: feedback.suggestions || "Consider adding more specific examples and measurable outcomes.",
+        starAnalysis: feedback.starAnalysis || {
+          situation: "Good context",
+          task: "Clear responsibility",
+          action: "Actions described",
+          result: "Outcomes mentioned"
+        },
+        followUpAnalysis: feedback.followUpAnalysis || "No follow-up questions provided."
+      },
+      score
     });
   } catch (error) {
-    console.error('Error providing behavioral feedback:', error);
-    res.status(500).json({ error: 'Failed to provide feedback' });
+    console.error('Error generating feedback:', error);
+    res.status(500).json({ error: 'Failed to generate feedback' });
   }
 } 

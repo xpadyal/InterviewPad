@@ -72,7 +72,7 @@ export default function VoiceInput({ onTranscript, placeholder, disabled = false
   };
 
   const startListening = () => {
-    if (recognitionRef.current && !disabled) {
+    if (recognitionRef.current && !disabled && !isListening) {
       try {
         recognitionRef.current.start();
       } catch (error) {
@@ -83,16 +83,18 @@ export default function VoiceInput({ onTranscript, placeholder, disabled = false
   };
 
   const stopListening = () => {
-    if (recognitionRef.current) {
+    if (recognitionRef.current && isListening) {
       try {
         recognitionRef.current.stop();
+        setIsListening(false);
       } catch (error) {
         console.error('Failed to stop speech recognition:', error);
+        setIsListening(false);
       }
     }
   };
 
-  const toggleListening = () => {
+  const handleButtonClick = () => {
     if (isListening) {
       stopListening();
     } else {
@@ -112,9 +114,10 @@ export default function VoiceInput({ onTranscript, placeholder, disabled = false
     <div className={styles.voiceInputContainer}>
       <button
         className={`${styles.voiceButton} ${isListening ? styles.listening : ''} ${disabled ? styles.disabled : ''}`}
-        onClick={toggleListening}
+        onClick={handleButtonClick}
         disabled={disabled}
         title={isListening ? 'Stop recording' : 'Start voice input'}
+        type="button"
       >
         {isListening ? '⏹️' : '🎤'}
       </button>
@@ -122,7 +125,7 @@ export default function VoiceInput({ onTranscript, placeholder, disabled = false
       {isListening && (
         <div className={styles.recordingIndicator}>
           <span className={styles.recordingDot}></span>
-          <span>Recording... Speak now</span>
+          <span>Recording... Click to stop</span>
         </div>
       )}
       

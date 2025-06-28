@@ -1,0 +1,57 @@
+.footer {
+  width: 100vw;
+  background: #18181b;
+  color: #a1a1aa;
+  padding: 1.2rem 0 1.2rem 0;
+  border-top: 1px solid #23232b;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 1rem;
+  margin-top: 2rem;
+}
+
+.footerContent {
+  width: 100%;
+  max-width: 1400px;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 2rem;
+}
+
+.footerLinks {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.footerLinks a {
+  color: #6366f1;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.footerLinks a:hover {
+  color: #a21caf;
+}
+
+@media (max-width: 700px) {
+  .footerContent {
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0 1rem;
+    font-size: 0.95rem;
+  }
+}
+
+.loveNote {
+  width: 100%;
+  text-align: center;
+  color: #a1a1aa;
+  font-size: 1rem;
+  margin-top: 0.3rem;
+  letter-spacing: 0.01em;
+} 

@@ -1,8 +1,14 @@
 import styles from './QuestionPanel.module.css';
 import { useState } from 'react';
+import LoadingSpinner from './components/LoadingSpinner';
 
-export default function QuestionPanel({ question }) {
+export default function QuestionPanel({ question, questionLoading }) {
   const [tab, setTab] = useState('description');
+  if (questionLoading) return (
+    <div className={styles.questionPanel} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 220 }}>
+      <LoadingSpinner text="Loading question..." />
+    </div>
+  );
   if (!question) return (
     <div className={styles.questionPanel} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 220, color: 'var(--text-secondary, #a1a1aa)' }}>
       <div style={{ fontSize: '2.5rem', marginBottom: '0.7rem' }}>📝</div>

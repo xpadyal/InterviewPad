@@ -1,0 +1,108 @@
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem;
+}
+
+.spinner {
+  position: relative;
+  display: inline-block;
+}
+
+.spinnerRing {
+  position: absolute;
+  border: 3px solid transparent;
+  border-radius: 50%;
+  animation: spin 1.2s linear infinite;
+}
+
+.spinnerRing:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.spinnerRing:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.spinnerRing:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* Size variants */
+.small .spinnerRing {
+  width: 20px;
+  height: 20px;
+  border-width: 2px;
+}
+
+.medium .spinnerRing {
+  width: 32px;
+  height: 32px;
+  border-width: 3px;
+}
+
+.large .spinnerRing {
+  width: 48px;
+  height: 48px;
+  border-width: 4px;
+}
+
+/* Color variants */
+.primary .spinnerRing {
+  border-top-color: #667eea;
+}
+
+.secondary .spinnerRing {
+  border-top-color: #f093fb;
+}
+
+.success .spinnerRing {
+  border-top-color: #22c55e;
+}
+
+.warning .spinnerRing {
+  border-top-color: #f59e0b;
+}
+
+.error .spinnerRing {
+  border-top-color: #ef4444;
+}
+
+.loadingText {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #666;
+  font-weight: 500;
+  text-align: center;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: rotate(360deg);
+    opacity: 1;
+  }
+}
+
+/* Pulse animation for loading states */
+.loadingContainer.pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+} 

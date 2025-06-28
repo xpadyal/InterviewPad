@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
+import Navigation from './components/Navigation';
 import styles from './Index.module.css';
 
 export default function Home() {
@@ -48,11 +49,27 @@ export default function Home() {
 
   return (
     <div className={styles.container}>
+      <Navigation />
+      
       <div className={styles.hero}>
         <h1 className={styles.title}>InterviewPad</h1>
         <p className={styles.subtitle}>
           Master both coding and behavioral interviews with AI-powered practice
         </p>
+        <div className={styles.heroStats}>
+          <div className={styles.stat}>
+            <span className={styles.statNumber}>2</span>
+            <span className={styles.statLabel}>Interview Types</span>
+          </div>
+          <div className={styles.stat}>
+            <span className={styles.statNumber}>8</span>
+            <span className={styles.statLabel}>Categories</span>
+          </div>
+          <div className={styles.stat}>
+            <span className={styles.statNumber}>🎤</span>
+            <span className={styles.statLabel}>Voice Features</span>
+          </div>
+        </div>
       </div>
 
       <div className={styles.content}>
@@ -99,14 +116,40 @@ export default function Home() {
               <li><strong>Voice Input:</strong> Practice speaking naturally with speech-to-text</li>
               <li><strong>Voice Agent:</strong> AI interviewer speaks questions and feedback</li>
             </ul>
-            <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+            <div className={styles.demoLinks}>
               <a href="/voice-demo" className={styles.demoLink}>
                 🎤 Try Voice Input Demo
               </a>
-              <span style={{ margin: '0 1rem' }}>|</span>
               <a href="/voice-agent-demo" className={styles.demoLink}>
                 🔊 Try Voice Agent Demo
               </a>
+            </div>
+          </div>
+        </div>
+
+        <div className={styles.features}>
+          <h3>🎯 Quick Start Guide</h3>
+          <div className={styles.quickStart}>
+            <div className={styles.step}>
+              <div className={styles.stepNumber}>1</div>
+              <div className={styles.stepContent}>
+                <h4>Choose Your Path</h4>
+                <p>Select between coding or behavioral interviews based on your needs</p>
+              </div>
+            </div>
+            <div className={styles.step}>
+              <div className={styles.stepNumber}>2</div>
+              <div className={styles.stepContent}>
+                <h4>Practice & Learn</h4>
+                <p>Use AI-powered feedback to improve your skills and responses</p>
+              </div>
+            </div>
+            <div className={styles.step}>
+              <div className={styles.stepNumber}>3</div>
+              <div className={styles.stepContent}>
+                <h4>Master Voice Features</h4>
+                <p>Try voice input and AI voice agent for realistic practice</p>
+              </div>
             </div>
           </div>
         </div>

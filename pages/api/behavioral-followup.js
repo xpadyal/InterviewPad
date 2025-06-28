@@ -10,44 +10,27 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { originalQuestion, response, starStructure, followUpCount = 2 } = req.body;
+    const { originalQuestion, response, followUpCount = 3 } = req.body;
 
     if (!originalQuestion || !response) {
       return res.status(400).json({ error: 'Original question and response are required' });
     }
 
-    const prompt = `You are an expert interviewer conducting a behavioral interview. Based on the candidate's response, generate ${followUpCount} relevant follow-up questions.
+    const prompt = `You are an expert HR professional conducting a behavioral interview. Based on the candidate's response to the original question, generate ${followUpCount} relevant follow-up questions that will help you better understand their experience and capabilities.
 
 Original Question: "${originalQuestion}"
 
-Candidate's Response:
-- Situation: ${response.situation}
-- Task: ${response.task}
-- Action: ${response.action}
-- Result: ${response.result}
+Candidate's Response: "${response}"
 
 Generate ${followUpCount} follow-up questions that:
-1. **Probe deeper** into specific aspects of their response
-2. **Seek clarification** on unclear points
-3. **Explore alternative scenarios** or "what if" situations
-4. **Ask for specific details** like numbers, timelines, or outcomes
-5. **Challenge assumptions** or explore different perspectives
-6. **Connect to other competencies** or skills
+1. Are specific and relevant to the candidate's response
+2. Help clarify details or explore deeper aspects
+3. Assess different dimensions of their experience
+4. Are open-ended and encourage detailed responses
+5. Follow good behavioral interviewing practices
 
-The questions should be:
-- Specific and actionable
-- Based on what they actually said
-- Designed to elicit more detailed responses
-- Professional and appropriate for an interview setting
-
-Format the response as a JSON array of strings, where each string is a follow-up question.
-
-Example format:
-[
-  "You mentioned that the project was behind schedule. What specific steps did you take to get it back on track?",
-  "How did you handle resistance from team members who disagreed with your approach?",
-  "What would you do differently if you faced a similar situation in the future?"
-]`;
+Return the questions as a JSON array:
+["question1", "question2", "question3"]`;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4",

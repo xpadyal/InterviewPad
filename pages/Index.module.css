@@ -9,9 +9,10 @@
 
 .hero {
   text-align: center;
-  padding: 4rem 2rem 2rem;
+  padding: 6rem 2rem 3rem;
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(10px);
+  margin-top: 70px; /* Account for fixed navigation */
 }
 
 .title {
@@ -27,12 +28,39 @@
 
 .subtitle {
   font-size: 1.3rem;
-  margin: 0;
+  margin: 0 0 2rem 0;
   opacity: 0.9;
   max-width: 600px;
-  margin: 0 auto;
+  margin: 0 auto 2rem auto;
   line-height: 1.6;
   animation: fadeInUp 1s ease-out 0.2s both;
+}
+
+.heroStats {
+  display: flex;
+  justify-content: center;
+  gap: 3rem;
+  margin-top: 2rem;
+  animation: fadeInUp 1s ease-out 0.4s both;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.statNumber {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.statLabel {
+  font-size: 0.9rem;
+  opacity: 0.8;
+  font-weight: 500;
 }
 
 .content {
@@ -178,7 +206,7 @@
 
 .info {
   max-width: 800px;
-  margin: 0 auto;
+  margin: 0 auto 4rem auto;
   animation: fadeInUp 1s ease-out 1s both;
 }
 
@@ -200,43 +228,109 @@
 .infoCard ul {
   list-style: none;
   padding: 0;
-  margin: 0;
+  margin: 0 0 2rem 0;
   text-align: left;
-  max-width: 500px;
-  margin: 0 auto;
 }
 
 .infoCard li {
   padding: 0.75rem 0;
   font-size: 1rem;
+  opacity: 0.9;
   line-height: 1.5;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .infoCard li:last-child {
-  border-bottom: none;
+  margin-bottom: 0;
 }
 
 .infoCard strong {
   color: #22c55e;
 }
 
+.demoLinks {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
 .demoLink {
   display: inline-block;
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  background: rgba(255, 255, 255, 0.2);
   color: #fff;
   text-decoration: none;
   padding: 0.75rem 1.5rem;
   border-radius: 12px;
-  font-weight: 600;
+  font-weight: 500;
   transition: all 0.3s ease;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .demoLink:hover {
+  background: rgba(255, 255, 255, 0.3);
   transform: translateY(-2px);
-  box-shadow: 0 8px 32px rgba(240, 147, 251, 0.4);
-  border-color: rgba(255, 255, 255, 0.4);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.features {
+  max-width: 900px;
+  margin: 0 auto 4rem auto;
+  animation: fadeInUp 1s ease-out 1.2s both;
+}
+
+.features h3 {
+  text-align: center;
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0 0 2rem 0;
+}
+
+.quickStart {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 2rem;
+}
+
+.step {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: transform 0.3s ease;
+}
+
+.step:hover {
+  transform: translateY(-4px);
+}
+
+.stepNumber {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.stepContent h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.stepContent p {
+  margin: 0;
+  opacity: 0.8;
+  line-height: 1.5;
+  font-size: 0.95rem;
 }
 
 .footer {
@@ -266,12 +360,26 @@
 
 /* Responsive Design */
 @media (max-width: 768px) {
+  .hero {
+    padding: 4rem 1rem 2rem;
+    margin-top: 70px;
+  }
+  
   .title {
     font-size: 2.5rem;
   }
   
   .subtitle {
     font-size: 1.1rem;
+  }
+  
+  .heroStats {
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+  
+  .statNumber {
+    font-size: 2rem;
   }
   
   .sectionTitle {
@@ -299,14 +407,42 @@
     padding: 2rem 1rem;
   }
   
-  .hero {
-    padding: 3rem 1rem 2rem;
+  .quickStart {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  
+  .demoLinks {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .demoLink {
+    width: 100%;
+    max-width: 250px;
+    text-align: center;
   }
 }
 
 @media (max-width: 480px) {
+  .hero {
+    padding: 3rem 0.75rem 1.5rem;
+  }
+  
   .title {
     font-size: 2rem;
+  }
+  
+  .subtitle {
+    font-size: 1rem;
+  }
+  
+  .heroStats {
+    gap: 1.5rem;
+  }
+  
+  .statNumber {
+    font-size: 1.75rem;
   }
   
   .card {
@@ -315,5 +451,15 @@
   
   .features li {
     font-size: 0.9rem;
+  }
+  
+  .step {
+    padding: 1rem;
+  }
+  
+  .stepNumber {
+    width: 32px;
+    height: 32px;
+    font-size: 1rem;
   }
 } 

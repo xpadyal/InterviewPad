@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import styles from './Behavioral.module.css';
+import Navigation from './components/Navigation';
+import LoadingSpinner from './components/LoadingSpinner';
+import ErrorMessage from './components/ErrorMessage';
 import VoiceInput from './VoiceInput';
 import VoiceAgent from './VoiceAgent';
 
@@ -15,26 +18,13 @@ const categories = [
   { id: 'initiative', name: 'Initiative', icon: '🚀', description: 'Taking ownership and driving projects' }
 ];
 
-// STAR method structure
-const starStructure = {
-  situation: 'Describe the specific situation or context',
-  task: 'Explain your responsibility or the challenge you faced',
-  action: 'Detail the specific actions you took',
-  result: 'Share the outcomes and what you learned'
-};
-
 export default function BehavioralInterview() {
   const [selectedCategories, setSelectedCategories] = useState(['leadership', 'problem-solving']);
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [questionLoading, setQuestionLoading] = useState(false);
   const [interviewStarted, setInterviewStarted] = useState(false);
   const [timer, setTimer] = useState(0);
-  const [currentResponse, setCurrentResponse] = useState({
-    situation: '',
-    task: '',
-    action: '',
-    result: ''
-  });
+  const [currentResponse, setCurrentResponse] = useState('');
   const [responseFeedback, setResponseFeedback] = useState(null);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [questionHistory, setQuestionHistory] = useState([]);
@@ -55,6 +45,9 @@ export default function BehavioralInterview() {
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [currentSpeakingText, setCurrentSpeakingText] = useState('');
   const lastSpokenTextRef = useRef('');
+
+  // Error state
+  const [error, setError] = useState(null);
 
   // Timer effect
   useEffect(() => {
@@ -88,11 +81,8 @@ export default function BehavioralInterview() {
     );
   };
 
-  const handleVoiceTranscript = (field) => (transcript) => {
-    setCurrentResponse(prev => ({
-      ...prev,
-      [field]: prev[field] + (prev[field] ? ' ' : '') + transcript
-    }));
+  const handleVoiceTranscript = (transcript) => {
+    setCurrentResponse(prev => prev + (prev ? ' ' : '') + transcript);
   };
 
   const handleFollowUpVoiceTranscript = (questionId) => (transcript) => {
@@ -128,6 +118,7 @@ export default function BehavioralInterview() {
 
   const generateQuestions = async () => {
     setQuestionLoading(true);
+    setError(null);
     try {
       const response = await fetch('/api/behavioral-questions', {
         method: 'POST',
@@ -139,7 +130,7 @@ export default function BehavioralInterview() {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to generate questions');
+        throw new Error('Failed to generate questions. Please try again.');
       }
       
       const data = await response.json();
@@ -161,7 +152,7 @@ export default function BehavioralInterview() {
       }
     } catch (error) {
       console.error('Error generating questions:', error);
-      alert('Failed to generate questions. Please try again.');
+      setError(error.message);
     } finally {
       setQuestionLoading(false);
     }
@@ -172,7 +163,7 @@ export default function BehavioralInterview() {
       setCurrentQuestionIndex(prev => prev + 1);
       const nextQuestion = questionHistory[currentQuestionIndex + 1];
       setCurrentQuestion(nextQuestion);
-      setCurrentResponse({ situation: '', task: '', action: '', result: '' });
+      setCurrentResponse('');
       setResponseFeedback(null);
       setFollowUpQuestions([]);
       setShowFollowUps(false);
@@ -193,7 +184,7 @@ export default function BehavioralInterview() {
       setCurrentQuestionIndex(prev => prev - 1);
       const prevQuestion = questionHistory[currentQuestionIndex - 1];
       setCurrentQuestion(prevQuestion);
-      setCurrentResponse({ situation: '', task: '', action: '', result: '' });
+      setCurrentResponse('');
       setResponseFeedback(null);
       setFollowUpQuestions([]);
       setShowFollowUps(false);
@@ -209,6 +200,7 @@ export default function BehavioralInterview() {
 
   const getFeedback = async () => {
     setFeedbackLoading(true);
+    setError(null);
     try {
       const response = await fetch('/api/behavioral-feedback', {
         method: 'POST',
@@ -216,12 +208,13 @@ export default function BehavioralInterview() {
         body: JSON.stringify({
           question: currentQuestion,
           response: currentResponse,
-          starStructure
+          followUpQuestions: followUpQuestions,
+          followUpResponses: followUpResponses
         })
       });
       
       if (!response.ok) {
-        throw new Error('Failed to get feedback');
+        throw new Error('Failed to get feedback. Please try again.');
       }
       
       const data = await response.json();
@@ -234,7 +227,7 @@ export default function BehavioralInterview() {
       }
     } catch (error) {
       console.error('Error getting feedback:', error);
-      alert('Failed to get feedback. Please try again.');
+      setError(error.message);
     } finally {
       setFeedbackLoading(false);
     }
@@ -242,6 +235,7 @@ export default function BehavioralInterview() {
 
   const generateFollowUpQuestions = async () => {
     setFollowUpLoading(true);
+    setError(null);
     try {
       const response = await fetch('/api/behavioral-followup', {
         method: 'POST',
@@ -249,13 +243,12 @@ export default function BehavioralInterview() {
         body: JSON.stringify({
           originalQuestion: currentQuestion,
           response: currentResponse,
-          starStructure,
           followUpCount: 3
         })
       });
       
       if (!response.ok) {
-        throw new Error('Failed to generate follow-up questions');
+        throw new Error('Failed to generate follow-up questions. Please try again.');
       }
       
       const data = await response.json();
@@ -269,7 +262,7 @@ export default function BehavioralInterview() {
       }
     } catch (error) {
       console.error('Error generating follow-up questions:', error);
-      alert('Failed to generate follow-up questions. Please try again.');
+      setError(error.message);
     } finally {
       setFollowUpLoading(false);
     }
@@ -304,7 +297,7 @@ export default function BehavioralInterview() {
     setCurrentQuestion(null);
     setQuestionHistory([]);
     setCurrentQuestionIndex(0);
-    setCurrentResponse({ situation: '', task: '', action: '', result: '' });
+    setCurrentResponse('');
     setResponseFeedback(null);
     setInterviewComplete(false);
     setInterviewScore(0);
@@ -314,237 +307,150 @@ export default function BehavioralInterview() {
     setFollowUpResponses({});
     setCurrentFollowUpIndex(0);
     setCurrentSpeakingText('');
-    lastSpokenTextRef.current = '';
+    setError(null);
   };
 
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>Behavioral Interview</h1>
-        <div className={styles.headerControls}>
-          <a href="/" className={styles.navLink}>
-            🏠 Home
-          </a>
-          <a href="/editor" className={styles.navLink}>
-            💻 Coding
-          </a>
-          <div className={styles.voiceToggle}>
-            <label>
-              <input
-                type="checkbox"
-                checked={voiceEnabled}
-                onChange={(e) => setVoiceEnabled(e.target.checked)}
-                className={styles.voiceToggleInput}
-              />
-              🔊 Voice Agent
-            </label>
-          </div>
-          <div className={styles.timer}>
-            ⏱️ {formatTime(timer)}
-          </div>
-        </div>
-      </header>
-
-      {!interviewStarted ? (
-        <div className={styles.setup}>
-          <div className={styles.setupSection}>
-            <h2>Select Question Categories</h2>
-            <div className={styles.categories}>
-              {categories.map(category => (
-                <div
-                  key={category.id}
-                  className={`${styles.categoryCard} ${
-                    selectedCategories.includes(category.id) ? styles.selected : ''
-                  }`}
-                  onClick={() => handleCategoryToggle(category.id)}
-                >
-                  <div className={styles.categoryIcon}>{category.icon}</div>
-                  <div className={styles.categoryInfo}>
-                    <h3>{category.name}</h3>
-                    <p>{category.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className={styles.setupSection}>
-            <h2>Interview Settings</h2>
-            <div className={styles.settings}>
+      <Navigation />
+      
+      <div className={styles.content}>
+        <header className={styles.header}>
+          <h1 className={styles.title}>Behavioral Interview</h1>
+          <div className={styles.headerControls}>
+            <div className={styles.voiceToggle}>
               <label>
-                Number of Questions:
-                <select 
-                  value={totalQuestions} 
-                  onChange={(e) => setTotalQuestions(Number(e.target.value))}
-                  className={styles.select}
-                >
-                  <option value={3}>3 Questions</option>
-                  <option value={5}>5 Questions</option>
-                  <option value={8}>8 Questions</option>
-                  <option value={10}>10 Questions</option>
-                </select>
+                <input
+                  type="checkbox"
+                  checked={voiceEnabled}
+                  onChange={(e) => setVoiceEnabled(e.target.checked)}
+                  className={styles.voiceToggleInput}
+                />
+                🔊 Voice Agent
               </label>
             </div>
+            <div className={styles.timer}>
+              ⏱️ {formatTime(timer)}
+            </div>
           </div>
+        </header>
 
-          <button 
-            className={styles.startButton}
-            onClick={generateQuestions}
-            disabled={questionLoading || selectedCategories.length === 0}
-          >
-            {questionLoading ? 'Generating Questions...' : 'Start Interview'}
-          </button>
-        </div>
-      ) : interviewComplete ? (
-        <div className={styles.completion}>
-          <div className={styles.completionCard}>
-            <h2>Interview Complete! 🎉</h2>
-            <div className={styles.stats}>
-              <div className={styles.stat}>
-                <span className={styles.statLabel}>Total Time</span>
-                <span className={styles.statValue}>{formatTime(timer)}</span>
-              </div>
-              <div className={styles.stat}>
-                <span className={styles.statLabel}>Questions Answered</span>
-                <span className={styles.statValue}>{questionHistory.length}</span>
-              </div>
-              <div className={styles.stat}>
-                <span className={styles.statLabel}>Average Score</span>
-                <span className={styles.statValue}>
-                  {Math.round(interviewScore / questionHistory.length)}/10
-                </span>
+        {error && (
+          <ErrorMessage 
+            error={error} 
+            onRetry={() => setError(null)}
+            onDismiss={() => setError(null)}
+          />
+        )}
+
+        {!interviewStarted ? (
+          <div className={styles.setup}>
+            <div className={styles.setupSection}>
+              <h2>Select Question Categories</h2>
+              <div className={styles.categories}>
+                {categories.map(category => (
+                  <div
+                    key={category.id}
+                    className={`${styles.categoryCard} ${
+                      selectedCategories.includes(category.id) ? styles.selected : ''
+                    }`}
+                    onClick={() => handleCategoryToggle(category.id)}
+                  >
+                    <div className={styles.categoryIcon}>{category.icon}</div>
+                    <div className={styles.categoryInfo}>
+                      <h3>{category.name}</h3>
+                      <p>{category.description}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-            <button className={styles.resetButton} onClick={resetInterview}>
-              Start New Interview
+
+            <div className={styles.setupSection}>
+              <h2>Interview Settings</h2>
+              <div className={styles.settings}>
+                <label>
+                  Number of Questions:
+                  <select 
+                    value={totalQuestions} 
+                    onChange={(e) => setTotalQuestions(Number(e.target.value))}
+                    className={styles.select}
+                  >
+                    <option value={3}>3 Questions</option>
+                    <option value={5}>5 Questions</option>
+                    <option value={8}>8 Questions</option>
+                    <option value={10}>10 Questions</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <button 
+              className={styles.startButton}
+              onClick={generateQuestions}
+              disabled={questionLoading || selectedCategories.length === 0}
+            >
+              {questionLoading ? (
+                <LoadingSpinner size="small" text="Generating Questions..." />
+              ) : (
+                'Start Interview'
+              )}
             </button>
           </div>
-        </div>
-      ) : (
-        <div className={styles.interview}>
-          <div className={styles.questionSection}>
-            <div className={styles.questionHeader}>
-              <span className={styles.questionNumber}>
-                Question {currentQuestionIndex + 1} of {questionHistory.length}
-              </span>
-              <div className={styles.navigation}>
-                <button 
-                  onClick={handlePreviousQuestion}
-                  disabled={currentQuestionIndex === 0}
-                  className={styles.navButton}
-                >
-                  ← Previous
-                </button>
-                <button 
-                  onClick={handleNextQuestion}
-                  className={styles.navButton}
-                >
-                  Next →
-                </button>
+        ) : interviewComplete ? (
+          <div className={styles.completion}>
+            <div className={styles.completionCard}>
+              <h2>Interview Complete! 🎉</h2>
+              <div className={styles.stats}>
+                <div className={styles.stat}>
+                  <span className={styles.statLabel}>Total Time</span>
+                  <span className={styles.statValue}>{formatTime(timer)}</span>
+                </div>
+                <div className={styles.stat}>
+                  <span className={styles.statLabel}>Questions Answered</span>
+                  <span className={styles.statValue}>{questionHistory.length}</span>
+                </div>
+                <div className={styles.stat}>
+                  <span className={styles.statLabel}>Average Score</span>
+                  <span className={styles.statValue}>
+                    {Math.round(interviewScore / questionHistory.length)}/10
+                  </span>
+                </div>
               </div>
-            </div>
-            
-            <div className={styles.questionCard}>
-              <h3>{currentQuestion}</h3>
-              {voiceEnabled && currentSpeakingText === currentQuestion && (
-                <VoiceAgent
-                  text={currentQuestion}
-                  autoPlay={true}
-                  onSpeakEnd={() => {
-                    setCurrentSpeakingText('');
-                    lastSpokenTextRef.current = '';
-                  }}
-                />
-              )}
+              <button className={styles.resetButton} onClick={resetInterview}>
+                Start New Interview
+              </button>
             </div>
           </div>
-
-          <div className={styles.responseSection}>
-            <h3>Your Response (STAR Method)</h3>
-            <div className={styles.voiceInfo}>
-              <span className={styles.voiceIndicator}>
-                🎤 Voice input available - Click the microphone icon next to each field to speak your response
-              </span>
-              <div className={styles.voiceTips}>
-                <p><strong>Voice Tips:</strong></p>
-                <ul>
-                  <li>Speak clearly and at a normal pace</li>
-                  <li>Use specific examples and numbers when possible</li>
-                  <li>Structure your response using the STAR method</li>
-                  <li>You can edit the text after voice input</li>
-                </ul>
+        ) : (
+          <div className={styles.interview}>
+            <div className={styles.questionSection}>
+              <div className={styles.questionHeader}>
+                <span className={styles.questionNumber}>
+                  Question {currentQuestionIndex + 1} of {questionHistory.length}
+                </span>
+                <div className={styles.navigation}>
+                  <button 
+                    onClick={handlePreviousQuestion}
+                    disabled={currentQuestionIndex === 0}
+                    className={styles.navButton}
+                  >
+                    ← Previous
+                  </button>
+                  <button 
+                    onClick={handleNextQuestion}
+                    className={styles.navButton}
+                  >
+                    Next →
+                  </button>
+                </div>
               </div>
-            </div>
-            <div className={styles.starForm}>
-              {Object.entries(starStructure).map(([key, placeholder]) => (
-                <div key={key} className={styles.starField}>
-                  <div className={styles.starFieldHeader}>
-                    <label className={styles.starLabel}>
-                      {key.charAt(0).toUpperCase() + key.slice(1)}:
-                    </label>
-                    <VoiceInput
-                      onTranscript={handleVoiceTranscript(key)}
-                      placeholder="Click to speak"
-                    />
-                  </div>
-                  <textarea
-                    value={currentResponse[key]}
-                    onChange={(e) => setCurrentResponse(prev => ({
-                      ...prev,
-                      [key]: e.target.value
-                    }))}
-                    placeholder={placeholder}
-                    className={styles.starTextarea}
-                    rows={4}
-                  />
-                </div>
-              ))}
-            </div>
-
-            <div className={styles.responseActions}>
-              <button 
-                className={styles.feedbackButton}
-                onClick={getFeedback}
-                disabled={feedbackLoading || Object.values(currentResponse).some(v => !v.trim())}
-              >
-                {feedbackLoading ? 'Analyzing...' : 'Get Feedback'}
-              </button>
-              <button 
-                className={styles.followUpButton}
-                onClick={generateFollowUpQuestions}
-                disabled={followUpLoading || Object.values(currentResponse).some(v => !v.trim()) || showFollowUps}
-              >
-                {followUpLoading ? 'Generating...' : 'Get Follow-up Questions'}
-              </button>
-            </div>
-
-            {responseFeedback && (
-              <div className={styles.feedbackSection}>
-                <h4>AI Feedback</h4>
-                <div className={styles.feedbackCard}>
-                  <div className={styles.feedbackScore}>
-                    Score: {responseFeedback.score}/10
-                  </div>
-                  <div className={styles.feedbackContent}>
-                    <h5>Strengths:</h5>
-                    <ul>
-                      {responseFeedback.strengths.map((strength, index) => (
-                        <li key={index}>{strength}</li>
-                      ))}
-                    </ul>
-                    <h5>Areas for Improvement:</h5>
-                    <ul>
-                      {responseFeedback.improvements.map((improvement, index) => (
-                        <li key={index}>{improvement}</li>
-                      ))}
-                    </ul>
-                    <h5>Suggestions:</h5>
-                    <p>{responseFeedback.suggestions}</p>
-                  </div>
-                </div>
-                {voiceEnabled && (
+              
+              <div className={styles.questionCard}>
+                <h3>{currentQuestion}</h3>
+                {voiceEnabled && currentSpeakingText === currentQuestion && (
                   <VoiceAgent
-                    text={`Here's your feedback. Your score is ${responseFeedback.score} out of 10. ${responseFeedback.strengths.join(' ')} ${responseFeedback.improvements.join(' ')} ${responseFeedback.suggestions}`}
+                    text={currentQuestion}
                     autoPlay={true}
                     onSpeakEnd={() => {
                       setCurrentSpeakingText('');
@@ -553,73 +459,189 @@ export default function BehavioralInterview() {
                   />
                 )}
               </div>
-            )}
+            </div>
 
-            {showFollowUps && followUpQuestions.length > 0 && (
-              <div className={styles.followUpSection}>
-                <h4>Follow-up Questions</h4>
-                <div className={styles.followUpCard}>
-                  <div className={styles.followUpHeader}>
-                    <span className={styles.followUpNumber}>
-                      Follow-up {currentFollowUpIndex + 1} of {followUpQuestions.length}
-                    </span>
-                    <div className={styles.followUpNavigation}>
-                      <button 
-                        onClick={handlePreviousFollowUp}
-                        disabled={currentFollowUpIndex === 0}
-                        className={styles.navButton}
-                      >
-                        ← Previous
-                      </button>
-                      <button 
-                        onClick={handleNextFollowUp}
-                        disabled={currentFollowUpIndex === followUpQuestions.length - 1}
-                        className={styles.navButton}
-                      >
-                        Next →
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div className={styles.followUpQuestion}>
-                    <h5>{followUpQuestions[currentFollowUpIndex]}</h5>
-                    {voiceEnabled && currentSpeakingText === followUpQuestions[currentFollowUpIndex] && (
-                      <VoiceAgent
-                        text={followUpQuestions[currentFollowUpIndex]}
-                        autoPlay={true}
-                        onSpeakEnd={() => {
-                          setCurrentSpeakingText('');
-                          lastSpokenTextRef.current = '';
-                        }}
-                      />
-                    )}
-                  </div>
-
-                  <div className={styles.followUpResponse}>
-                    <div className={styles.starFieldHeader}>
-                      <label className={styles.starLabel}>Your Response:</label>
-                      <VoiceInput
-                        onTranscript={handleFollowUpVoiceTranscript(currentFollowUpIndex)}
-                        placeholder="Click to speak"
-                      />
-                    </div>
-                    <textarea
-                      value={followUpResponses[currentFollowUpIndex] || ''}
-                      onChange={(e) => setFollowUpResponses(prev => ({
-                        ...prev,
-                        [currentFollowUpIndex]: e.target.value
-                      }))}
-                      placeholder="Provide a detailed response to the follow-up question..."
-                      className={styles.starTextarea}
-                      rows={3}
-                    />
-                  </div>
+            <div className={styles.responseSection}>
+              <h3>Your Response</h3>
+              <div className={styles.voiceInfo}>
+                <span className={styles.voiceIndicator}>
+                  🎤 Voice input available - Click the microphone icon to speak your response
+                </span>
+                <div className={styles.voiceTips}>
+                  <p><strong>Response Tips:</strong></p>
+                  <ul>
+                    <li>Speak clearly and at a normal pace</li>
+                    <li>Use specific examples and numbers when possible</li>
+                    <li>You can edit the text after voice input</li>
+                  </ul>
                 </div>
               </div>
-            )}
+              <div className={styles.responseForm}>
+                <div className={styles.responseField}>
+                  <div className={styles.responseFieldHeader}>
+                    <label className={styles.responseLabel}>
+                      Your Answer:
+                    </label>
+                    <VoiceInput
+                      onTranscript={handleVoiceTranscript}
+                      placeholder="Click to speak"
+                    />
+                  </div>
+                  <textarea
+                    value={currentResponse}
+                    onChange={(e) => setCurrentResponse(e.target.value)}
+                    placeholder="Provide a detailed response to the question..."
+                    className={styles.responseTextarea}
+                    rows={8}
+                  />
+                </div>
+              </div>
+
+              <div className={styles.responseActions}>
+                <button 
+                  className={styles.feedbackButton}
+                  onClick={getFeedback}
+                  disabled={feedbackLoading || !currentResponse.trim()}
+                >
+                  {feedbackLoading ? (
+                    <LoadingSpinner size="small" text="Analyzing..." />
+                  ) : (
+                    'Get Feedback'
+                  )}
+                </button>
+                <button 
+                  className={styles.followUpButton}
+                  onClick={generateFollowUpQuestions}
+                  disabled={followUpLoading || !currentResponse.trim() || showFollowUps}
+                >
+                  {followUpLoading ? (
+                    <LoadingSpinner size="small" text="Generating..." />
+                  ) : (
+                    'Get Follow-up Questions'
+                  )}
+                </button>
+              </div>
+
+              {responseFeedback && (
+                <div className={styles.feedbackSection}>
+                  <h4>AI Feedback</h4>
+                  <div className={styles.feedbackCard}>
+                    <div className={styles.feedbackScore}>
+                      Score: {responseFeedback.score || 'N/A'}/10
+                    </div>
+                    <div className={styles.feedbackContent}>
+                      <h5>Strengths:</h5>
+                      <ul>
+                        {responseFeedback.strengths.map((strength, index) => (
+                          <li key={index}>{strength}</li>
+                        ))}
+                      </ul>
+                      <h5>Areas for Improvement:</h5>
+                      <ul>
+                        {responseFeedback.improvements.map((improvement, index) => (
+                          <li key={index}>{improvement}</li>
+                        ))}
+                      </ul>
+                      <h5>Suggestions:</h5>
+                      <p>{responseFeedback.suggestions}</p>
+                      {responseFeedback.starAnalysis && (
+                        <>
+                          <h5>STAR Method Analysis:</h5>
+                          <div className={styles.starAnalysis}>
+                            <div><strong>Situation:</strong> {responseFeedback.starAnalysis.situation}</div>
+                            <div><strong>Task:</strong> {responseFeedback.starAnalysis.task}</div>
+                            <div><strong>Action:</strong> {responseFeedback.starAnalysis.action}</div>
+                            <div><strong>Result:</strong> {responseFeedback.starAnalysis.result}</div>
+                          </div>
+                        </>
+                      )}
+                      {responseFeedback.followUpAnalysis && (
+                        <>
+                          <h5>Follow-up Analysis:</h5>
+                          <p>{responseFeedback.followUpAnalysis}</p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  {voiceEnabled && (
+                    <VoiceAgent
+                      text={`Here's your feedback. Your score is ${responseFeedback.score || 'N/A'} out of 10. ${responseFeedback.strengths.join(' ')} ${responseFeedback.improvements.join(' ')} ${responseFeedback.suggestions}`}
+                      autoPlay={true}
+                      onSpeakEnd={() => {
+                        setCurrentSpeakingText('');
+                        lastSpokenTextRef.current = '';
+                      }}
+                    />
+                  )}
+                </div>
+              )}
+
+              {showFollowUps && followUpQuestions.length > 0 && (
+                <div className={styles.followUpSection}>
+                  <h4>Follow-up Questions</h4>
+                  <div className={styles.followUpCard}>
+                    <div className={styles.followUpHeader}>
+                      <span className={styles.followUpNumber}>
+                        Follow-up {currentFollowUpIndex + 1} of {followUpQuestions.length}
+                      </span>
+                      <div className={styles.followUpNavigation}>
+                        <button 
+                          onClick={handlePreviousFollowUp}
+                          disabled={currentFollowUpIndex === 0}
+                          className={styles.navButton}
+                        >
+                          ← Previous
+                        </button>
+                        <button 
+                          onClick={handleNextFollowUp}
+                          disabled={currentFollowUpIndex === followUpQuestions.length - 1}
+                          className={styles.navButton}
+                        >
+                          Next →
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className={styles.followUpQuestion}>
+                      <h5>{followUpQuestions[currentFollowUpIndex]}</h5>
+                      {voiceEnabled && currentSpeakingText === followUpQuestions[currentFollowUpIndex] && (
+                        <VoiceAgent
+                          text={followUpQuestions[currentFollowUpIndex]}
+                          autoPlay={true}
+                          onSpeakEnd={() => {
+                            setCurrentSpeakingText('');
+                            lastSpokenTextRef.current = '';
+                          }}
+                        />
+                      )}
+                    </div>
+
+                    <div className={styles.followUpResponse}>
+                      <div className={styles.starFieldHeader}>
+                        <label className={styles.starLabel}>Your Response:</label>
+                        <VoiceInput
+                          onTranscript={handleFollowUpVoiceTranscript(currentFollowUpIndex)}
+                          placeholder="Click to speak"
+                        />
+                      </div>
+                      <textarea
+                        value={followUpResponses[currentFollowUpIndex] || ''}
+                        onChange={(e) => setFollowUpResponses(prev => ({
+                          ...prev,
+                          [currentFollowUpIndex]: e.target.value
+                        }))}
+                        placeholder="Provide a detailed response to the follow-up question..."
+                        className={styles.starTextarea}
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 } 

@@ -4,6 +4,10 @@ import styles from './Editor.module.css';
 import { HintButton, CriticButton, SolveButton } from './AssistantBar';
 import QuestionPanel from './QuestionPanel';
 import Modal from './Modal';
+import Navigation from './components/Navigation';
+import LoadingSpinner from './components/LoadingSpinner';
+import ErrorMessage from './components/ErrorMessage';
+import Footer from './components/Footer';
 
 // Dynamically import Monaco Editor to avoid SSR issues
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
@@ -168,6 +172,7 @@ export default function CodeEditor() {
     { input: '', expectedOutput: '', actualOutput: '', passed: null, id: Date.now() }
   ]);
   const [testCasesRunning, setTestCasesRunning] = useState(false);
+  const [questionLoading, setQuestionLoading] = useState(false);
 
   const handleLanguageChange = (e) => {
     const lang = languages.find(l => l.id === Number(e.target.value));
@@ -306,6 +311,7 @@ export default function CodeEditor() {
     setSolveLoading(false);
     setHintLoading(false);
     setCritiqueLoading(false);
+    setQuestionLoading(true);
     try {
       const res = await fetch('/api/question', {
         method: 'POST',
@@ -334,6 +340,8 @@ export default function CodeEditor() {
       }
     } catch (err) {
       setQuestion({ title: 'Error', description: 'Could not fetch question.' });
+    } finally {
+      setQuestionLoading(false);
     }
   };
 
@@ -482,220 +490,260 @@ export default function CodeEditor() {
   };
 
   return (
-    <div className={`${styles.root} ${theme === 'dark' ? styles.darkTheme : styles.brightTheme}`}>
-      <header className={styles.header}>
-        <span className={styles.brand}>InterviewPad</span>
-        <div>
-          <a href="/" className={styles.navLink} style={{ marginRight: '1rem', color: '#fff', textDecoration: 'none', padding: '0.5rem 1rem', borderRadius: 8, background: 'rgba(255,255,255,0.1)', transition: 'background 0.3s ease' }}>
-            🏠 Home
-          </a>
-          <a href="/behavioral" className={styles.navLink} style={{ marginRight: '1rem', color: '#fff', textDecoration: 'none', padding: '0.5rem 1rem', borderRadius: 8, background: 'rgba(255,255,255,0.1)', transition: 'background 0.3s ease' }}>
-            🎯 Behavioral
-          </a>
-          <select
-            className={styles.languageSelector}
-            value={selectedLanguage.id}
-            onChange={handleLanguageChange}
-          >
-            {languages.map(lang => (
-              <option key={lang.id} value={lang.id}>{lang.icon} {lang.name}</option>
-            ))}
-          </select>
-          <button className={styles.themeSwitch} onClick={toggleTheme}>
-            {theme === 'dark' ? '🌙 Dark' : '☀️ Bright'}
-          </button>
-        </div>
-      </header>
-      {/* Interview Controls Bar - sticky at top, outside editor */}
-      <div className={styles.interviewControlsBar}>
-        <select value={difficulty} onChange={e => setDifficulty(e.target.value)} disabled={interviewStarted} style={{ fontSize: '1rem', padding: '0.4rem 1rem', borderRadius: 8 }}>
-          <option value="easy">Easy</option>
-          <option value="medium">Medium</option>
-          <option value="hard">Hard</option>
-        </select>
-        <button onClick={handleStartInterview} disabled={interviewStarted} style={{ fontSize: '1rem', padding: '0.5rem 1.5rem', borderRadius: 8, background: 'linear-gradient(90deg, #6366f1 10%, #a21caf 100%)', color: '#fff', fontWeight: 500, border: 'none', cursor: interviewStarted ? 'not-allowed' : 'pointer' }}>
-          Start Interview
-        </button>
-        <div style={{ fontSize: '1.1rem', fontWeight: 500, color: 'var(--accent, #6366f1)' }}>
-          ⏱️ {formatTime(timer)}
-        </div>
-        <button onClick={handleStopTimer} disabled={!interviewStarted} style={{ fontSize: '1rem', padding: '0.4rem 1.2rem', borderRadius: 8, background: '#ef4444', color: '#fff', fontWeight: 500, border: 'none', cursor: !interviewStarted ? 'not-allowed' : 'pointer', opacity: !interviewStarted ? 0.6 : 1 }}>
-          Stop Timer
-        </button>
-      </div>
-      <div className={styles.leetcodeLayout}>
-        <div className={styles.leetcodeQuestionCol} style={{ width: questionPanelWidth, minWidth: 180, maxWidth: 600, transition: isSplitterDragging.current ? 'none' : 'width 0.18s' }}>
-          <QuestionPanel question={question} />
-        </div>
-        {/* Splitter bar */}
-        <div
-          className={styles.splitter}
-          ref={splitterRef}
-          onMouseDown={startSplitterDrag}
-          title="Drag to resize panels"
-        >
-          <span style={{ width: 6, height: 36, background: '#fff', opacity: 0.7, borderRadius: 4, display: 'block', margin: '0 auto' }} />
-        </div>
-        <div className={styles.leetcodeCodeCol} style={{ minWidth: 0, flex: 1 }}>
-          {/* Interview Controls REMOVED from here */}
-          <div className={styles.panelHeader}>
-            <span>{selectedLanguage.name}</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <HintButton onHint={handleHint} disabled={hintLoading} />
-              <CriticButton onCritique={handleCritique} disabled={critiqueLoading} />
-              <SolveButton onSolve={handleSolve} disabled={solveLoading} />
-              <button
-                className={styles.runButton}
-                onClick={runCode}
-                disabled={running}
+    <div className={styles.container}>
+      <Navigation />
+      
+      <div className={styles.content}>
+        <header className={styles.header}>
+          <h1 className={styles.title}>Coding Interview</h1>
+          <div className={styles.headerControls}>
+            <div className={styles.languageSelector}>
+              <select
+                value={selectedLanguage.id}
+                onChange={handleLanguageChange}
+                className={styles.select}
               >
-                {running ? 'Running...' : 'Run Code'}
+                {languages.map(lang => (
+                  <option key={lang.id} value={lang.id}>{lang.icon} {lang.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className={styles.themeToggle}>
+              <button className={styles.themeButton} onClick={toggleTheme}>
+                {theme === 'dark' ? '🌙' : '☀️'}
               </button>
-              <button
-                onClick={handleReset}
-                style={{ background: '#18181b', color: '#ef4444', border: '1.5px solid #ef4444', borderRadius: 8, padding: '0.5rem 1.2rem', fontWeight: 500, marginLeft: 8, cursor: 'pointer', transition: 'background 0.18s, color 0.18s' }}
-                title="Reset session"
-              >
-                Reset
-              </button>
+            </div>
+            <div className={styles.timer}>
+              ⏱️ {formatTime(timer)}
             </div>
           </div>
-          <Modal open={modalOpen} onClose={closeModal} title={modalType === 'hint' ? '💡 Hint' : modalType === 'critique' ? '🧐 Critique' : ''}>
-            {(modalType === 'hint' && hintLoading) && <span>Loading hint...</span>}
-            {(modalType === 'critique' && critiqueLoading) && <span>Loading critique...</span>}
-            {(modalType === 'hint' && !hintLoading) && <span>{hint}</span>}
-            {(modalType === 'critique' && !critiqueLoading) && <span>{critique}</span>}
-          </Modal>
-          <div className={styles.resizableEditor} style={{ height: editorHeight }}>
-            <div className={styles.editorContainer} style={{ height: '100%' }}>
-              <MonacoEditor
-                height="100%"
-                language={selectedLanguage.extension}
-                theme={theme === 'dark' ? 'vs-dark' : 'light'}
-                value={code}
-                onChange={value => setCode(value || '')}
-                options={{
-                  minimap: { enabled: false },
-                  fontSize: 14,
-                  fontFamily: 'JetBrains Mono, Consolas, monospace',
-                  lineNumbers: 'on',
-                  roundedSelection: false,
-                  scrollBeyondLastLine: false,
-                  automaticLayout: true,
-                  wordWrap: 'on',
-                  bracketPairColorization: { enabled: true },
-                  guides: { bracketPairs: true },
-                }}
-              />
-            </div>
-            <div
-              className={styles.dragHandle}
-              ref={dragRef}
-              onMouseDown={startDrag}
-              title="Drag to resize editor"
+        </header>
+
+        {/* Interview Controls Bar */}
+        <div className={styles.interviewControls}>
+          <div className={styles.interviewSettings}>
+            <select 
+              value={difficulty} 
+              onChange={e => setDifficulty(e.target.value)} 
+              disabled={interviewStarted}
+              className={styles.difficultySelect}
             >
-              <span className={styles.dragHandleBar} />
-            </div>
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+            <button 
+              onClick={handleStartInterview} 
+              disabled={interviewStarted}
+              className={styles.startButton}
+            >
+              {interviewStarted ? 'Interview Started' : 'Start Interview'}
+            </button>
+            <button 
+              onClick={handleStopTimer} 
+              disabled={!interviewStarted}
+              className={styles.stopButton}
+            >
+              Stop Timer
+            </button>
           </div>
-          <div className={styles.leetcodeOutputPanel}>
-            <div style={{ display: 'flex', gap: '1.5rem', borderBottom: '1.5px solid var(--border, #31313a)', marginBottom: 8 }}>
-              <button
-                className={testTab === 'output' ? styles.leetcodeOutputTabActive : styles.leetcodeOutputTab}
-                onClick={() => setTestTab('output')}
-                type="button"
-              >
-                Output
-              </button>
-              <button
-                className={testTab === 'testcase' ? styles.leetcodeOutputTabActive : styles.leetcodeOutputTab}
-                onClick={() => setTestTab('testcase')}
-                type="button"
-              >
-                Test Case
-                <span style={{ marginLeft: 6, fontSize: '0.85em', color: '#fbbf24', background: 'rgba(251,191,36,0.12)', borderRadius: 4, padding: '1px 6px', fontWeight: 600, verticalAlign: 'middle', letterSpacing: '0.01em' }}>Beta</span>
-              </button>
+        </div>
+
+        <div className={styles.leetcodeLayout}>
+          <div className={styles.leetcodeQuestionCol} style={{ width: questionPanelWidth, minWidth: 180, maxWidth: 600, transition: isSplitterDragging.current ? 'none' : 'width 0.18s' }}>
+            <QuestionPanel question={question} questionLoading={questionLoading} />
+          </div>
+          {/* Splitter bar */}
+          <div
+            className={styles.splitter}
+            ref={splitterRef}
+            onMouseDown={startSplitterDrag}
+            title="Drag to resize panels"
+          >
+            <span style={{ width: 6, height: 36, background: '#fff', opacity: 0.7, borderRadius: 4, display: 'block', margin: '0 auto' }} />
+          </div>
+          <div className={styles.leetcodeCodeCol} style={{ minWidth: 0, flex: 1 }}>
+            <div className={styles.panelHeader}>
+              <span className={styles.languageName}>{selectedLanguage.name}</span>
+              <div className={styles.editorControls}>
+                <HintButton onHint={handleHint} disabled={hintLoading} />
+                <CriticButton onCritique={handleCritique} disabled={critiqueLoading} />
+                <SolveButton onSolve={handleSolve} disabled={solveLoading} />
+                <button
+                  className={styles.runButton}
+                  onClick={runCode}
+                  disabled={running}
+                >
+                  {running ? (
+                    <LoadingSpinner size="small" text="Running..." />
+                  ) : (
+                    'Run Code'
+                  )}
+                </button>
+                <button
+                  onClick={handleReset}
+                  className={styles.resetButton}
+                  title="Reset session"
+                >
+                  Reset
+                </button>
+              </div>
             </div>
-            {testTab === 'output' && (
-              <div>
-                <div className={styles.leetcodeOutputHeader}>Output</div>
-                {output || <span style={{ color: '#a1a1aa' }}>// Output will appear here...</span>}
+            <Modal open={modalOpen} onClose={closeModal} title={modalType === 'hint' ? '💡 Hint' : modalType === 'critique' ? '🧐 Critique' : ''}>
+              {(modalType === 'hint' && hintLoading) && <LoadingSpinner text="Loading hint..." />}
+              {(modalType === 'critique' && critiqueLoading) && <LoadingSpinner text="Loading critique..." />}
+              {(modalType === 'hint' && !hintLoading) && <span>{hint}</span>}
+              {(modalType === 'critique' && !critiqueLoading) && <span>{critique}</span>}
+            </Modal>
+            <div className={styles.resizableEditor} style={{ height: editorHeight }}>
+              <div className={styles.editorContainer} style={{ height: '100%' }}>
+                <MonacoEditor
+                  height="100%"
+                  language={selectedLanguage.extension}
+                  theme={theme === 'dark' ? 'vs-dark' : 'light'}
+                  value={code}
+                  onChange={value => setCode(value || '')}
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 14,
+                    fontFamily: 'JetBrains Mono, Consolas, monospace',
+                    lineNumbers: 'on',
+                    roundedSelection: false,
+                    scrollBeyondLastLine: true,
+                    automaticLayout: true,
+                    wordWrap: 'on',
+                    bracketPairColorization: { enabled: true },
+                    guides: { bracketPairs: true },
+                    scrollbar: {
+                      vertical: 'visible',
+                      horizontal: 'visible',
+                      verticalScrollbarSize: 14,
+                      horizontalScrollbarSize: 14,
+                      useShadows: false
+                    },
+                    mouseWheelScrollSensitivity: 1,
+                    fastScrollSensitivity: 5,
+                    cursorBlinking: 'blink',
+                    cursorSmoothCaretAnimation: 'on',
+                    smoothScrolling: true
+                  }}
+                />
               </div>
-            )}
-            {testTab === 'testcase' && (
-              <div>
-                <div className={styles.leetcodeOutputHeader}>Test Case</div>
-                {/* Leetcode-style test case table */}
-                <div style={{ marginBottom: 12 }}>
-                  <table className={styles.testCaseTable} style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 8 }}>
-                    <thead>
-                      <tr>
-                        <th style={{ textAlign: 'left', padding: 6 }}>Input</th>
-                        <th style={{ textAlign: 'left', padding: 6 }}>Expected Output</th>
-                        <th style={{ textAlign: 'left', padding: 6 }}>Result</th>
-                        <th style={{ textAlign: 'left', padding: 6 }}>Actual Output</th>
-                        <th></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {testCases.map((tc, idx) => (
-                        <tr key={tc.id}>
-                          <td style={{ padding: 6 }}>
-                            <input
-                              type="text"
-                              value={typeof tc.input === 'string' ? tc.input : JSON.stringify(tc.input)}
-                              onChange={e => handleTestCaseChange(idx, 'input', e.target.value)}
-                              placeholder="e.g. 12345"
-                              style={{ width: '100%', fontFamily: 'JetBrains Mono, monospace', borderRadius: 6, padding: 4, border: '1px solid var(--border)' }}
-                            />
-                          </td>
-                          <td style={{ padding: 6 }}>
-                            <input
-                              type="text"
-                              value={tc.expectedOutput}
-                              onChange={e => handleTestCaseChange(idx, 'expectedOutput', e.target.value)}
-                              placeholder="e.g. 15"
-                              style={{ width: '100%', fontFamily: 'JetBrains Mono, monospace', borderRadius: 6, padding: 4, border: '1px solid var(--border)' }}
-                            />
-                          </td>
-                          <td style={{ padding: 6, textAlign: 'center' }}>
-                            {tc.passed === null ? '' : tc.passed ? <span style={{ color: '#22c55e', fontWeight: 600 }}>✅</span> : <span style={{ color: '#ef4444', fontWeight: 600 }}>❌</span>}
-                          </td>
-                          <td style={{ padding: 6, fontFamily: 'JetBrains Mono, monospace', color: tc.passed === false ? '#ef4444' : undefined }}>
-                            {JSON.stringify(tc.actualOutput)}
-                          </td>
-                          <td style={{ padding: 6 }}>
-                            <button
-                              onClick={() => handleRemoveTestCase(idx)}
-                              disabled={testCases.length === 1}
-                              style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '1.2rem', cursor: testCases.length === 1 ? 'not-allowed' : 'pointer' }}
-                              title="Remove test case"
-                            >
-                              ✕
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <button
-                    onClick={handleAddTestCase}
-                    style={{ background: 'linear-gradient(90deg, #6366f1 10%, #a21caf 100%)', color: '#fff', border: 'none', borderRadius: 8, padding: '0.3rem 1.1rem', fontWeight: 500, marginRight: 8, cursor: 'pointer' }}
-                  >
-                    + Add Test Case
-                  </button>
-                  <button
-                    onClick={runAllTestCases}
-                    disabled={testCasesRunning}
-                    style={{ background: 'linear-gradient(90deg, #22c55e 10%, #16a34a 100%)', color: '#fff', border: 'none', borderRadius: 8, padding: '0.3rem 1.1rem', fontWeight: 500, cursor: testCasesRunning ? 'not-allowed' : 'pointer', opacity: testCasesRunning ? 0.7 : 1 }}
-                  >
-                    {testCasesRunning ? 'Running...' : 'Run All'}
-                  </button>
+              <div
+                className={styles.dragHandle}
+                ref={dragRef}
+                onMouseDown={startDrag}
+                title="Drag to resize editor"
+              >
+                <span className={styles.dragHandleBar} />
+              </div>
+            </div>
+            <div className={styles.leetcodeOutputPanel}>
+              <div className={styles.outputTabs}>
+                <button
+                  className={`${styles.outputTab} ${testTab === 'output' ? styles.outputTabActive : ''}`}
+                  onClick={() => setTestTab('output')}
+                  type="button"
+                >
+                  Output
+                </button>
+                <button
+                  className={`${styles.outputTab} ${testTab === 'testcase' ? styles.outputTabActive : ''}`}
+                  onClick={() => setTestTab('testcase')}
+                  type="button"
+                >
+                  Test Case
+                  <span className={styles.betaBadge}>Beta</span>
+                </button>
+              </div>
+              {testTab === 'output' && (
+                <div className={styles.outputContent}>
+                  <div className={styles.outputHeader}>Output</div>
+                  {output || <span className={styles.outputPlaceholder}>// Output will appear here...</span>}
                 </div>
-              </div>
-            )}
+              )}
+              {testTab === 'testcase' && (
+                <div className={styles.testCaseContent}>
+                  <div className={styles.outputHeader}>Test Case</div>
+                  <div className={styles.testCaseTable}>
+                    <table className={styles.testCaseTableInner}>
+                      <thead>
+                        <tr>
+                          <th>Input</th>
+                          <th>Expected Output</th>
+                          <th>Result</th>
+                          <th>Actual Output</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {testCases.map((tc, idx) => (
+                          <tr key={tc.id}>
+                            <td>
+                              <input
+                                type="text"
+                                value={typeof tc.input === 'string' ? tc.input : JSON.stringify(tc.input)}
+                                onChange={e => handleTestCaseChange(idx, 'input', e.target.value)}
+                                placeholder="e.g. 12345"
+                                className={styles.testCaseInput}
+                              />
+                            </td>
+                            <td>
+                              <input
+                                type="text"
+                                value={tc.expectedOutput}
+                                onChange={e => handleTestCaseChange(idx, 'expectedOutput', e.target.value)}
+                                placeholder="e.g. 15"
+                                className={styles.testCaseInput}
+                              />
+                            </td>
+                            <td className={styles.testCaseResult}>
+                              {tc.passed === null ? '' : tc.passed ? <span className={styles.passIcon}>✅</span> : <span className={styles.failIcon}>❌</span>}
+                            </td>
+                            <td className={`${styles.testCaseOutput} ${tc.passed === false ? styles.testCaseOutputFail : ''}`}>
+                              {JSON.stringify(tc.actualOutput)}
+                            </td>
+                            <td>
+                              <button
+                                onClick={() => handleRemoveTestCase(idx)}
+                                disabled={testCases.length === 1}
+                                className={styles.removeTestCaseButton}
+                                title="Remove test case"
+                              >
+                                ✕
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div className={styles.testCaseActions}>
+                      <button
+                        onClick={handleAddTestCase}
+                        className={styles.addTestCaseButton}
+                      >
+                        + Add Test Case
+                      </button>
+                      <button
+                        onClick={runAllTestCases}
+                        disabled={testCasesRunning}
+                        className={styles.runAllButton}
+                      >
+                        {testCasesRunning ? (
+                          <LoadingSpinner size="small" text="Running..." />
+                        ) : (
+                          'Run All'
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 } 
