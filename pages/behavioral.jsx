@@ -70,8 +70,8 @@ export default function BehavioralInterview() {
     if (typeof window !== 'undefined') {
       const initPDF = async () => {
         const { GlobalWorkerOptions, getDocument } = await import('pdfjs-dist/build/pdf');
-        // Use CDN worker for better compatibility
-        GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        // Use local worker file for better reliability
+        GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
         // Make getDocument available globally
         window.pdfjsLib = { getDocument };
       };
@@ -410,7 +410,7 @@ export default function BehavioralInterview() {
       if (error.message === 'PDF.js not initialized') {
         try {
           const { GlobalWorkerOptions, getDocument } = await import('pdfjs-dist/build/pdf');
-          GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
           window.pdfjsLib = { getDocument };
           
           // Retry reading the PDF
