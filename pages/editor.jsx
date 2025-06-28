@@ -1,13 +1,13 @@
 import dynamic from 'next/dynamic';
 import { useState, useEffect, useRef } from 'react';
 import styles from './Editor.module.css';
-import { HintButton, CriticButton, SolveButton } from './components/AssistantBar';
+import { HintButton, CriticButton, SolveButton } from '../components/AssistantBar';
 import QuestionPanel from './QuestionPanel';
 import Modal from './Modal';
-import Navigation from './components/Navigation';
-import LoadingSpinner from './components/LoadingSpinner';
-import ErrorMessage from './components/ErrorMessage';
-import Footer from './components/Footer';
+import Navigation from '../components/Navigation';
+import LoadingSpinner from '../components/LoadingSpinner';
+import ErrorMessage from '../components/ErrorMessage';
+import Footer from '../components/Footer';
 
 // Dynamically import Monaco Editor to avoid SSR issues
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false });

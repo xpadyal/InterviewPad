@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import styles from './Behavioral.module.css';
-import Navigation from './components/Navigation';
-import LoadingSpinner from './components/LoadingSpinner';
-import ErrorMessage from './components/ErrorMessage';
+import Navigation from '../components/Navigation';
+import LoadingSpinner from '../components/LoadingSpinner';
+import ErrorMessage from '../components/ErrorMessage';
 import VoiceInput from './VoiceInput';
 import VoiceAgent from './VoiceAgent';
 

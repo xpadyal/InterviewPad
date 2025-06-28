@@ -1,6 +1,6 @@
 import styles from './QuestionPanel.module.css';
 import { useState } from 'react';
-import LoadingSpinner from './components/LoadingSpinner';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function QuestionPanel({ question, questionLoading }) {
   const [tab, setTab] = useState('description');

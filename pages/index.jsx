@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
-import Navigation from './components/Navigation';
+import Navigation from '../components/Navigation';
 import styles from './Index.module.css';
 
 export default function Home() {
