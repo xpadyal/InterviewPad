@@ -81,6 +81,12 @@ export default function BehavioralInterview() {
   const [experience, setExperience] = useState('');
   const [industry, setIndustry] = useState('Software');
 
+  // Add state for summary modal
+  const [selectedSummaryQuestion, setSelectedSummaryQuestion] = useState(null);
+
+  // Add state for next question loading
+  const [nextQuestionLoading, setNextQuestionLoading] = useState(false);
+
   const industryOptions = [
     'Software', 'Finance', 'Healthcare', 'Education', 'Retail', 'Manufacturing', 'Consulting', 'Government', 'Other'
   ];
@@ -230,16 +236,20 @@ export default function BehavioralInterview() {
     if (!sessionId) return;
 
     try {
-      const overallScore = Math.round(interviewScore / questionHistory.length);
-      const overallFeedback = `Interview completed with ${questionHistory.length} questions. Total score: ${interviewScore}/${questionHistory.length * 10}. Average score: ${overallScore}%.`;
+      // Calculate cumulativeScore as in the UI
+      const answeredQuestions = questionHistory.filter(q => typeof q.score === 'number');
+      const cumulativeScore = answeredQuestions.length > 0
+        ? Math.round(answeredQuestions.reduce((sum, q) => sum + q.score, 0) / answeredQuestions.length)
+        : 0;
+      const overallFeedback = `Interview completed with ${answeredQuestions.length} questions. Total score: ${answeredQuestions.reduce((sum, q) => sum + (q.score || 0), 0)}/${answeredQuestions.length * 10}. Average score: ${cumulativeScore}%.`;
 
       await fetch('/api/behavioral-session/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionId,
-          completedQuestions: questionHistory.length,
-          overallScore,
+          completedQuestions: answeredQuestions.length,
+          overallScore: cumulativeScore,
           overallFeedback
         })
       });
@@ -324,26 +334,97 @@ export default function BehavioralInterview() {
     }
   };
 
-  const handleNextQuestion = () => {
-    if (currentQuestionIndex < questionHistory.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
-      const nextQuestion = questionHistory[currentQuestionIndex + 1];
-      setCurrentQuestion(nextQuestion);
-      setCurrentResponse('');
-      setResponseFeedback(null);
-      setFollowUpQuestions([]);
-      setShowFollowUps(false);
-      setFollowUpResponses({});
-      setCurrentFollowUpIndex(0);
-      
-      // Speak the next question
-      if (voiceEnabled) {
-        setTimeout(() => speakQuestion(nextQuestion), 500);
+  // Update handleNextQuestion to generate feedback in the background
+  const handleNextQuestion = async () => {
+    if (nextQuestionLoading) return;
+    setNextQuestionLoading(true);
+
+    // Gather follow-up Q&A for the current question
+    const currentQ = questionHistory[currentQuestionIndex];
+    const followUps = Array.isArray(followUpQuestions) ? followUpQuestions : [];
+    const followUpResps = { ...followUpResponses };
+
+    // Prepare API endpoint and request body
+    const isResumeInterview = selectedCategories.includes('resume');
+    const apiEndpoint = isResumeInterview ? '/api/resume-feedback' : '/api/behavioral-feedback';
+    const requestBody = isResumeInterview
+      ? {
+          question: currentQuestion,
+          response: currentResponse,
+          resumeText: resumeText,
+          jobDescription: jobDescText,
+          followUpQuestions: followUps,
+          followUpResponses: followUpResps
+        }
+      : {
+          question: currentQuestion,
+          response: currentResponse,
+          followUpQuestions: followUps,
+          followUpResponses: followUpResps
+        };
+
+    try {
+      // Call feedback API
+      const response = await fetch(apiEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      });
+      let feedback = null;
+      let score = null;
+      if (response.ok) {
+        const data = await response.json();
+        feedback = data.feedback;
+        score = data.score || (data.feedback && data.feedback.score) || null;
       }
-    } else {
-      setInterviewComplete(true);
-      // Complete the session when interview is finished
-      completeSession();
+
+      // Update questionHistory with feedback and score
+      setQuestionHistory(prev => {
+        const updated = [...prev];
+        updated[currentQuestionIndex] = {
+          ...updated[currentQuestionIndex],
+          questionText: currentQuestion,
+          userResponse: currentResponse,
+          followUpQuestions: followUps,
+          followUpResponses: followUpResps,
+          aiFeedback: feedback,
+          score: score
+        };
+        return updated;
+      });
+
+      // Save Q&A to session
+      await saveQAToSession(
+        currentQuestionIndex + 1,
+        currentQuestion,
+        currentResponse,
+        JSON.stringify(feedback),
+        score
+      );
+
+      // Move to next question or complete
+      if (currentQuestionIndex < questionHistory.length - 1) {
+        setCurrentQuestionIndex(prev => prev + 1);
+        const nextQuestion = questionHistory[currentQuestionIndex + 1]?.questionText || questionHistory[currentQuestionIndex + 1];
+        setCurrentQuestion(nextQuestion);
+        setCurrentResponse('');
+        setFollowUpQuestions([]);
+        setShowFollowUps(false);
+        setFollowUpResponses({});
+        setCurrentFollowUpIndex(0);
+        // Speak the next question
+        if (voiceEnabled && nextQuestion) {
+          setTimeout(() => speakQuestion(nextQuestion), 500);
+        }
+      } else {
+        setInterviewComplete(true);
+        await completeSession();
+      }
+    } catch (error) {
+      console.error('Error generating feedback:', error);
+      setError('Failed to generate feedback. Please try again.');
+    } finally {
+      setNextQuestionLoading(false);
     }
   };
 
@@ -788,6 +869,20 @@ export default function BehavioralInterview() {
     }
   };
 
+  // Add a helper for score color
+  const getScoreColor = (score) => {
+    if (score === undefined || score === null) return '#ef4444'; // N/A
+    if (score >= 8) return '#10b981'; // green
+    if (score >= 4) return '#f59e0b'; // orange
+    return '#ef4444'; // red
+  };
+
+  // Calculate cumulative score from answered questions
+  const answeredQuestions = questionHistory.filter(q => typeof q.score === 'number');
+  const cumulativeScore = answeredQuestions.length > 0
+    ? Math.round(answeredQuestions.reduce((sum, q) => sum + q.score, 0) / answeredQuestions.length)
+    : 0;
+
   return (
     <ProtectedRoute>
       <div className={styles.container}>
@@ -900,25 +995,97 @@ export default function BehavioralInterview() {
               <div className={styles.completionCard}>
                 <h2>Interview Complete! 🎉</h2>
                 <div className={styles.stats}>
+                  <div className={styles.circularScore}>
+                    {/* Circular progress indicator for cumulative score */}
+                    {(() => {
+                      const percent = Math.max(0, Math.min(100, Math.round((cumulativeScore / 10) * 100)));
+                      return (
+                        <svg width="80" height="80" viewBox="0 0 40 40">
+                          <circle cx="20" cy="20" r="18" fill="none" stroke="#e5e7eb" strokeWidth="4" />
+                          <circle cx="20" cy="20" r="18" fill="none" stroke={getScoreColor(cumulativeScore)} strokeWidth="4" strokeDasharray={`${percent} ${100 - percent}`} strokeDashoffset="25" />
+                          <text x="50%" y="50%" textAnchor="middle" dy=".3em" fontSize="1.2em" fontWeight="bold" fill={getScoreColor(cumulativeScore)}>{cumulativeScore}/10</text>
+                        </svg>
+                      );
+                    })()}
+                  </div>
                   <div className={styles.stat}>
                     <span className={styles.statLabel}>Total Time</span>
                     <span className={styles.statValue}>{formatTime(timer)}</span>
                   </div>
                   <div className={styles.stat}>
                     <span className={styles.statLabel}>Questions Answered</span>
-                    <span className={styles.statValue}>{questionHistory.length}</span>
+                    <span className={styles.statValue}>{answeredQuestions.length}</span>
                   </div>
-                  <div className={styles.stat}>
-                    <span className={styles.statLabel}>Average Score</span>
-                    <span className={styles.statValue}>
-                      {Math.round(interviewScore / questionHistory.length)}/10
-                    </span>
+                </div>
+                <div className={styles.summaryList}>
+                  <h3>Questions & Scores</h3>
+                  <div className={styles.summaryQuestions}>
+                    {questionHistory.map((q, idx) => {
+                      const answered = typeof q.score === 'number';
+                      return (
+                        <div
+                          key={idx}
+                          className={styles.summaryQuestionItem}
+                          onClick={() => setSelectedSummaryQuestion(q)}
+                          tabIndex={0}
+                          role="button"
+                          aria-label={`View details for question ${idx + 1}`}
+                          title={`View details for question ${idx + 1}`}
+                          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setSelectedSummaryQuestion(q); }}
+                        >
+                          <span className={styles.summaryQuestionNum}>Q{idx + 1}</span>
+                          <span
+                            className={q.score !== undefined ? styles.summaryScore : styles.summaryScoreNA}
+                            style={{ color: getScoreColor(q.score) }}
+                          >
+                            {q.score !== undefined ? `${q.score}/10` : 'N/A'}
+                          </span>
+                          <span className={styles.summaryIcon}>{answered ? '✔️' : '❌'}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className={styles.summaryHint}>
+                    Click a question to view your answer and feedback.
                   </div>
                 </div>
                 <button className={styles.resetButton} onClick={resetInterview}>
                   Start New Interview
                 </button>
               </div>
+              {/* Modal for question details */}
+              <Modal
+                open={!!selectedSummaryQuestion}
+                onClose={() => setSelectedSummaryQuestion(null)}
+                title={`Question Details`}
+              >
+                {selectedSummaryQuestion && (
+                  <div className={styles.modalContent}>
+                    <div className={styles.modalSection}>
+                      <strong>Question:</strong>
+                      <div className={styles.modalQuestion}>{selectedSummaryQuestion.questionText || selectedSummaryQuestion.question}</div>
+                    </div>
+                    <div className={styles.modalSection}>
+                      <strong>Your Answer:</strong>
+                      <div className={styles.modalAnswer}>{selectedSummaryQuestion.userResponse || selectedSummaryQuestion.user_answer || 'N/A'}</div>
+                    </div>
+                    <div className={styles.modalSection}>
+                      <strong>Score:</strong> {selectedSummaryQuestion.score !== undefined ? selectedSummaryQuestion.score : 'N/A'}/10
+                    </div>
+                    <div className={styles.modalSection}>
+                      <strong>Feedback:</strong>
+                      <div className={styles.modalFeedback}>{typeof selectedSummaryQuestion.aiFeedback === 'string' ? selectedSummaryQuestion.aiFeedback : JSON.stringify(selectedSummaryQuestion.aiFeedback)}</div>
+                      {voiceEnabled && selectedSummaryQuestion.aiFeedback && (
+                        <VoiceAgent
+                          text={typeof selectedSummaryQuestion.aiFeedback === 'string' ? selectedSummaryQuestion.aiFeedback : JSON.stringify(selectedSummaryQuestion.aiFeedback)}
+                          autoPlay={false}
+                          onSpeakEnd={() => {}}
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
+              </Modal>
             </div>
           ) : (
             <div className={styles.interview}>
@@ -938,8 +1105,9 @@ export default function BehavioralInterview() {
                     <button 
                       onClick={handleNextQuestion}
                       className={styles.navButton}
+                      disabled={nextQuestionLoading}
                     >
-                      Next →
+                      {nextQuestionLoading ? <LoadingSpinner size="small" text="Loading..." /> : 'Next →'}
                     </button>
                   </div>
                   <div className={styles.interviewControls}>
@@ -1012,17 +1180,6 @@ export default function BehavioralInterview() {
                 </div>
 
                 <div className={styles.responseActions}>
-                  <button 
-                    className={styles.feedbackButton}
-                    onClick={getFeedback}
-                    disabled={feedbackLoading || !currentResponse.trim()}
-                  >
-                    {feedbackLoading ? (
-                      <LoadingSpinner size="small" text="Analyzing..." />
-                    ) : (
-                      'Get Feedback'
-                    )}
-                  </button>
                   <button 
                     className={styles.followUpButton}
                     onClick={generateFollowUpQuestions}

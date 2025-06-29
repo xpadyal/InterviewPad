@@ -14,9 +14,7 @@ export default function Navigation() {
     { href: '/', label: 'Home', icon: '🏠' },
     { href: '/editor', label: 'Coding', icon: '💻' },
     { href: '/behavioral', label: 'Behavioral', icon: '💬' },
-    { href: '/sessions', label: 'Sessions', icon: '📊' },
-    { href: '/voice-demo', label: 'Voice Input', icon: '🎤' },
-    { href: '/voice-agent-demo', label: 'Voice Agent', icon: '🔊' }
+    { href: '/sessions', label: 'Sessions', icon: '📊' }
   ];
 
   const isActive = (href) => router.pathname === href;

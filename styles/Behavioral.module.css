@@ -1,0 +1,177 @@
+.circularScore {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 1.5rem auto 2rem auto;
+  max-width: 100px;
+}
+
+.summaryList {
+  margin-top: 2.5rem;
+}
+
+.summaryQuestions {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.summaryQuestionItem {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: box-shadow 0.2s, transform 0.2s, background 0.2s, border-color 0.2s;
+  font-size: 1.1rem;
+  border: 2px solid transparent;
+  min-width: 250px;
+  justify-content: center;
+}
+.summaryQuestionItem:hover, .summaryQuestionItem:focus {
+  box-shadow: 0 8px 24px rgba(102,126,234,0.18);
+  transform: translateY(-3px) scale(1.03);
+  background: linear-gradient(135deg, #f0f4ff 0%, #e0e7ff 100%);
+  border-color: #6366f1;
+  outline: none;
+}
+
+.summaryQuestionNum, .summaryScore, .summaryScoreNA {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin-right: 1.2rem;
+}
+
+.summaryIcon {
+  margin-left: 1.2rem;
+  font-size: 1.5rem;
+}
+
+.summaryHint {
+  margin-top: 1rem;
+  color: #888;
+  font-size: 1rem;
+  text-align: center;
+}
+
+.completionCard h2 {
+  font-size: 2.3rem;
+  font-weight: 800;
+  margin-bottom: 1.5rem;
+}
+
+.summaryList h3 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin-bottom: 1.2rem;
+  text-align: left;
+}
+
+.startButton, .resetButton, .modalConfirmButton, .modalCancelButton, .navButton, .endButton, .restartButton, .feedbackButton, .followUpButton {
+  background: linear-gradient(135deg, #667eea 0%, #22c55e 100%);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: box-shadow 0.2s, transform 0.2s, background 0.2s, border-color 0.2s;
+  margin: 0.25rem 0.5rem;
+  min-width: 120px;
+  outline: none;
+}
+.startButton:hover, .resetButton:hover, .modalConfirmButton:hover, .modalCancelButton:hover, .navButton:hover, .endButton:hover, .restartButton:hover, .feedbackButton:hover, .followUpButton:hover {
+  box-shadow: 0 8px 32px rgba(102,126,234,0.18);
+  transform: translateY(-2px) scale(1.03);
+  background: linear-gradient(135deg, #22c55e 0%, #667eea 100%);
+}
+.startButton:focus, .resetButton:focus, .modalConfirmButton:focus, .modalCancelButton:focus, .navButton:focus, .endButton:focus, .restartButton:focus, .feedbackButton:focus, .followUpButton:focus {
+  border: 2px solid #6366f1;
+  outline: none;
+}
+
+.completionCard, .modalContent, .questionSection, .responseSection, .followUpCard, .feedbackCard {
+  box-shadow: 0 4px 24px rgba(102,126,234,0.10);
+  border-radius: 20px;
+  background: #fff;
+  padding: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.responseTextarea, .configInput, .modalTextarea {
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem;
+  font-size: 1rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.responseTextarea:focus, .configInput:focus, .modalTextarea:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.10);
+  outline: none;
+}
+
+.modalError, .errorMessage {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  padding: 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+}
+
+[role="button"][aria-label]::after {
+  content: attr(aria-label);
+  position: absolute;
+  left: 50%;
+  bottom: 120%;
+  transform: translateX(-50%);
+  background: #333;
+  color: #fff;
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+  z-index: 10;
+}
+[role="button"][aria-label]:hover::after, [role="button"][aria-label]:focus::after {
+  opacity: 1;
+}
+
+@media (max-width: 600px) {
+  .completionCard h2 {
+    font-size: 1.5rem;
+  }
+  .summaryList h3 {
+    font-size: 1.1rem;
+  }
+  .summaryQuestionItem {
+    font-size: 1rem;
+    padding: 1rem 0.75rem;
+  }
+  .summaryQuestionNum, .summaryScore, .summaryScoreNA {
+    font-size: 1rem;
+  }
+  .summaryIcon {
+    font-size: 1.1rem;
+    margin-left: 0.75rem;
+  }
+  .startButton, .resetButton, .modalConfirmButton, .modalCancelButton, .navButton, .endButton, .restartButton, .feedbackButton, .followUpButton {
+    font-size: 1rem;
+    padding: 0.75rem 1.2rem;
+    min-width: 90px;
+  }
+  .completionCard, .modalContent, .questionSection, .responseSection, .followUpCard, .feedbackCard {
+    padding: 1rem;
+    border-radius: 12px;
+  }
+} 

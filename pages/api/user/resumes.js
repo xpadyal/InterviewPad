@@ -49,7 +49,7 @@ export default async function handler(req, res) {
         }
 
         const result = await deleteResume(resumeId, userId);
-        if (result.deletedRows === 0) {
+        if (result === 0) {
           return res.status(404).json({ error: 'Resume not found' });
         }
 

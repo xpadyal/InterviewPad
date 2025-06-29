@@ -106,14 +106,26 @@ export default function Sessions() {
                         </div>
                         <div className={styles.sessionStats}>
                           <span>{session.completed_questions}/{session.total_questions} questions</span>
-                          {session.overall_score && (
-                            <span 
-                              className={styles.score}
-                              style={{ color: getScoreColor(session.overall_score) }}
-                            >
-                              {session.overall_score}%
-                            </span>
-                          )}
+                          <span className={styles.score} style={{ color: getScoreColor(session.overall_score) }}>
+                            {session.overall_score !== null && session.overall_score !== undefined ? session.overall_score : 'N/A'}
+                          </span>
+                          <button
+                            className={styles.deleteButton}
+                            title="Delete session"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (confirm('Are you sure you want to delete this session? This cannot be undone.')) {
+                                await fetch('/api/behavioral-session/delete', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ sessionId: session.session_id })
+                                });
+                                fetchSessions();
+                              }
+                            }}
+                          >
+                            🗑️
+                          </button>
                         </div>
                       </div>
                       
@@ -174,7 +186,7 @@ export default function Sessions() {
                         className={styles.statValue}
                         style={{ color: getScoreColor(sessionDetails.session.overall_score || 0) }}
                       >
-                        {sessionDetails.session.overall_score || 'N/A'}%
+                        {sessionDetails.session.overall_score || 'N/A'}
                       </span>
                     </div>
                     <div className={styles.stat}>
