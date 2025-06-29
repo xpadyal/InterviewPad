@@ -1,8 +1,10 @@
 import { Pool } from 'pg';
 
 const pool = new Pool({
-  connectionString: process.env.SUPABASE_DB_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  connectionString: process.env.DATABASE_URL || process.env.SUPABASE_DB_URL,
+  ssl: {
+    rejectUnauthorized: false
+  },
 });
 
 export async function query(text, params) {
