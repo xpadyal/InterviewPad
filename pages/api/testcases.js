@@ -136,6 +136,22 @@ export default async function handler(req, res) {
       }
     );
     const result = await response.json();
+    
+    // Check for quota errors or other API errors
+    if (result.message && result.message.includes('quota')) {
+      return res.status(429).json({ 
+        error: 'Daily quota exceeded for code execution. Please upgrade your RapidAPI plan or try again tomorrow.',
+        details: result.message 
+      });
+    }
+    
+    if (result.message && result.message.includes('error')) {
+      return res.status(400).json({ 
+        error: 'Code execution error', 
+        details: result.message 
+      });
+    }
+    
     let resultsArr = [];
     try {
       const parsed = JSON.parse(result.stdout);
