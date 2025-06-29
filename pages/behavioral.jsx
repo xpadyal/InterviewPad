@@ -6,6 +6,7 @@ import ErrorMessage from '../components/ErrorMessage';
 import VoiceInput from './VoiceInput';
 import VoiceAgent from './VoiceAgent';
 import Modal from './Modal';
+import ProtectedRoute from '../components/ProtectedRoute';
 
 // Behavioral question categories
 const categories = [
@@ -36,6 +37,10 @@ export default function BehavioralInterview() {
   const [interviewComplete, setInterviewComplete] = useState(false);
   const timerRef = useRef(null);
 
+  // Session management state
+  const [sessionId, setSessionId] = useState(null);
+  const [sessionData, setSessionData] = useState([]);
+
   // Follow-up questions state
   const [followUpQuestions, setFollowUpQuestions] = useState([]);
   const [followUpLoading, setFollowUpLoading] = useState(false);
@@ -64,6 +69,21 @@ export default function BehavioralInterview() {
   const [modalResumeText, setModalResumeText] = useState('');
   const [modalJobDescText, setModalJobDescText] = useState('');
   const [modalFileError, setModalFileError] = useState(null);
+
+  // Saved resumes state
+  const [savedResumes, setSavedResumes] = useState([]);
+  const [loadingResumes, setLoadingResumes] = useState(false);
+  const [selectedResumeId, setSelectedResumeId] = useState(null);
+
+  // Add state for config modal
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [role, setRole] = useState('');
+  const [experience, setExperience] = useState('');
+  const [industry, setIndustry] = useState('Software');
+
+  const industryOptions = [
+    'Software', 'Finance', 'Healthcare', 'Education', 'Retail', 'Manufacturing', 'Consulting', 'Government', 'Other'
+  ];
 
   // Initialize PDF.js on client side only
   useEffect(() => {
@@ -156,10 +176,98 @@ export default function BehavioralInterview() {
     }
   };
 
+  // Create a new behavioral session
+  const createSession = async () => {
+    try {
+      const response = await fetch('/api/behavioral-session/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          categories: selectedCategories,
+          totalQuestions: totalQuestions
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create session');
+      }
+
+      const data = await response.json();
+      setSessionId(data.sessionId);
+      return data.sessionId;
+    } catch (error) {
+      console.error('Error creating session:', error);
+      throw error;
+    }
+  };
+
+  // Save Q&A data to session
+  const saveQAToSession = async (questionNumber, questionText, userResponse, aiFeedback, score) => {
+    if (!sessionId) return;
+
+    try {
+      await fetch('/api/behavioral-session/save-qa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          questionNumber,
+          questionText,
+          userResponse,
+          aiFeedback,
+          score,
+          followUpQuestions: followUpQuestions.length > 0 ? followUpQuestions : null,
+          followUpResponses: Object.keys(followUpResponses).length > 0 ? followUpResponses : null
+        })
+      });
+    } catch (error) {
+      console.error('Error saving Q&A:', error);
+    }
+  };
+
+  // Complete the session
+  const completeSession = async () => {
+    if (!sessionId) return;
+
+    try {
+      const overallScore = Math.round(interviewScore / questionHistory.length);
+      const overallFeedback = `Interview completed with ${questionHistory.length} questions. Total score: ${interviewScore}/${questionHistory.length * 10}. Average score: ${overallScore}%.`;
+
+      await fetch('/api/behavioral-session/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          completedQuestions: questionHistory.length,
+          overallScore,
+          overallFeedback
+        })
+      });
+    } catch (error) {
+      console.error('Error completing session:', error);
+    }
+  };
+
+  // Open config modal on Start Interview
+  const handleStartInterview = () => {
+    setShowConfigModal(true);
+  };
+
+  // Confirm config and generate questions
+  const handleConfirmConfig = async () => {
+    setShowConfigModal(false);
+    await generateQuestions();
+  };
+
+  // Update generateQuestions to use config
   const generateQuestions = async () => {
     setQuestionLoading(true);
     setError(null);
     try {
+      // Create a new session first
+      const newSessionId = await createSession();
+      setSessionId(newSessionId);
+
       // Determine which API to use based on selected categories
       const isResumeInterview = selectedCategories.includes('resume');
       const apiEndpoint = isResumeInterview ? '/api/resume-questions' : '/api/behavioral-questions';
@@ -168,11 +276,17 @@ export default function BehavioralInterview() {
         ? {
             resumeText: resumeText,
             jobDescription: jobDescText,
-            count: totalQuestions
+            count: totalQuestions,
+            role,
+            experience,
+            industry
           }
         : {
             categories: selectedCategories,
-            count: totalQuestions
+            count: totalQuestions,
+            role,
+            experience,
+            industry
           };
 
       const response = await fetch(apiEndpoint, {
@@ -228,6 +342,8 @@ export default function BehavioralInterview() {
       }
     } else {
       setInterviewComplete(true);
+      // Complete the session when interview is finished
+      completeSession();
     }
   };
 
@@ -287,6 +403,15 @@ export default function BehavioralInterview() {
       const data = await response.json();
       setResponseFeedback(data.feedback);
       setInterviewScore(prev => prev + data.score);
+      
+      // Save Q&A to session
+      await saveQAToSession(
+        currentQuestionIndex + 1,
+        currentQuestion,
+        currentResponse,
+        JSON.stringify(data.feedback),
+        data.score
+      );
       
       // Speak the feedback
       if (voiceEnabled) {
@@ -359,6 +484,25 @@ export default function BehavioralInterview() {
     }
   };
 
+  // End interview early and save session
+  const endInterviewEarly = async () => {
+    if (confirm('Are you sure you want to end this interview? Your progress will be saved.')) {
+      // Complete the session with current progress
+      await completeSession();
+      setInterviewComplete(true);
+    }
+  };
+
+  // Restart interview with same settings
+  const restartInterview = async () => {
+    if (confirm('Are you sure you want to restart this interview? Your current progress will be lost.')) {
+      // Reset all state
+      resetInterview();
+      // Generate new questions with same settings
+      await generateQuestions();
+    }
+  };
+
   const resetInterview = () => {
     setInterviewStarted(false);
     setCurrentQuestion(null);
@@ -375,6 +519,8 @@ export default function BehavioralInterview() {
     setCurrentFollowUpIndex(0);
     setCurrentSpeakingText('');
     setError(null);
+    setSessionId(null);
+    setSessionData([]);
   };
 
   // Helper: Read file as text
@@ -511,27 +657,48 @@ export default function BehavioralInterview() {
     }
   };
 
+  // Load saved resumes when modal opens
+  useEffect(() => {
+    if (showResumeModal) {
+      loadSavedResumes();
+    }
+  }, [showResumeModal]);
+
   // Confirm modal and add resume category
-  const confirmResumeModal = () => {
+  const confirmResumeModal = async () => {
     if (!modalResumeText.trim()) {
       setModalFileError('Please upload a resume first.');
       return;
     }
     
-    // Add resume category and set the resume data
-    setSelectedCategories(prev => 
-      prev.includes('resume') ? prev : [...prev, 'resume']
-    );
-    setResumeFile(modalResumeFile);
-    setResumeText(modalResumeText);
-    setJobDescText(modalJobDescText);
-    
-    // Close modal and reset modal state
-    setShowResumeModal(false);
-    setModalResumeFile(null);
-    setModalResumeText('');
-    setModalJobDescText('');
-    setModalFileError(null);
+    try {
+      // If it's a new upload (not a selected saved resume), save it to database
+      if (modalResumeFile && !selectedResumeId) {
+        await saveResumeToDatabase(
+          modalResumeFile.name,
+          modalResumeText,
+          modalResumeFile.type
+        );
+      }
+      
+      // Add resume category and set the resume data
+      setSelectedCategories(prev => 
+        prev.includes('resume') ? prev : [...prev, 'resume']
+      );
+      setResumeFile(modalResumeFile);
+      setResumeText(modalResumeText);
+      setJobDescText(modalJobDescText);
+      
+      // Close modal and reset modal state
+      setShowResumeModal(false);
+      setModalResumeFile(null);
+      setModalResumeText('');
+      setModalJobDescText('');
+      setModalFileError(null);
+      setSelectedResumeId(null);
+    } catch (error) {
+      setModalFileError('Failed to save resume. Please try again.');
+    }
   };
 
   // Cancel modal
@@ -551,287 +718,253 @@ export default function BehavioralInterview() {
     setJobDescText('');
   };
 
-  return (
-    <div className={styles.container}>
-      <Navigation />
+  // Load saved resumes
+  const loadSavedResumes = async () => {
+    setLoadingResumes(true);
+    try {
+      const response = await fetch('/api/user/resumes');
+      if (response.ok) {
+        const data = await response.json();
+        setSavedResumes(data.resumes);
+      }
+    } catch (error) {
+      console.error('Error loading resumes:', error);
+    } finally {
+      setLoadingResumes(false);
+    }
+  };
+
+  // Save resume to database
+  const saveResumeToDatabase = async (filename, content, fileType) => {
+    try {
+      const response = await fetch('/api/user/resumes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename, content, fileType })
+      });
       
-      <div className={styles.content}>
-        <header className={styles.header}>
-          <h1 className={styles.title}>Behavioral Interview</h1>
-          <div className={styles.headerControls}>
-            <div className={styles.voiceToggle}>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={voiceEnabled}
-                  onChange={(e) => setVoiceEnabled(e.target.checked)}
-                  className={styles.voiceToggleInput}
-                />
-                🔊 Voice Agent
-              </label>
-            </div>
-            <div className={styles.timer}>
-              ⏱️ {formatTime(timer)}
-            </div>
-          </div>
-        </header>
+      if (response.ok) {
+        const data = await response.json();
+        // Reload resumes after saving
+        await loadSavedResumes();
+        return data.resume;
+      } else {
+        throw new Error('Failed to save resume');
+      }
+    } catch (error) {
+      console.error('Error saving resume:', error);
+      throw error;
+    }
+  };
 
-        {error && (
-          <ErrorMessage 
-            error={error} 
-            onRetry={() => setError(null)}
-            onDismiss={() => setError(null)}
-          />
-        )}
+  // Select a saved resume
+  const selectSavedResume = (resume) => {
+    setSelectedResumeId(resume.id);
+    setModalResumeText(resume.content);
+    setModalResumeFile({ name: resume.filename, type: resume.file_type });
+  };
 
-        {!interviewStarted ? (
-          <div className={styles.setup}>
-            <div className={styles.setupSection}>
-              <h2>Select Question Categories</h2>
-              <div className={styles.categories}>
-                {categories.map(category => (
-                  <div
-                    key={category.id}
-                    className={`${styles.categoryCard} ${
-                      selectedCategories.includes(category.id) ? styles.selected : ''
-                    } ${category.id === 'resume' && resumeText && jobDescText ? styles.resumeComplete : ''}`}
-                    onClick={() => handleCategoryToggle(category.id)}
-                    style={{
-                      opacity: selectedCategories.includes('resume') && category.id !== 'resume' ? 0.5 : 1,
-                      cursor: selectedCategories.includes('resume') && category.id !== 'resume' ? 'not-allowed' : 'pointer'
-                    }}
-                  >
-                    <div className={styles.categoryIcon}>{category.icon}</div>
-                    <div className={styles.categoryInfo}>
-                      <h3>{category.name}</h3>
-                      <p>{category.description}</p>
-                    </div>
-                    {category.id === 'resume' && resumeText && jobDescText && (
-                      <div className={styles.resumeTick}>✅</div>
-                    )}
-                    {category.id === 'resume' && selectedCategories.includes('resume') && (
-                      <button 
-                        className={styles.removeResumeButton}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeResumeCategory();
-                        }}
-                        title="Remove Resume Interview"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+  // Delete a saved resume
+  const deleteSavedResume = async (resumeId) => {
+    if (confirm('Are you sure you want to delete this resume?')) {
+      try {
+        const response = await fetch('/api/user/resumes', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resumeId })
+        });
+        
+        if (response.ok) {
+          await loadSavedResumes();
+          if (selectedResumeId === resumeId) {
+            setSelectedResumeId(null);
+            setModalResumeText('');
+            setModalResumeFile(null);
+          }
+        }
+      } catch (error) {
+        console.error('Error deleting resume:', error);
+      }
+    }
+  };
 
-            <div className={styles.setupSection}>
-              <h2>Interview Settings</h2>
-              <div className={styles.settings}>
+  return (
+    <ProtectedRoute>
+      <div className={styles.container}>
+        <Navigation />
+        
+        <div className={styles.content}>
+          <header className={styles.header}>
+            <h1 className={styles.title}>Behavioral Interview</h1>
+            <div className={styles.headerControls}>
+              <div className={styles.voiceToggle}>
                 <label>
-                  Number of Questions:
-                  <select 
-                    value={totalQuestions} 
-                    onChange={(e) => setTotalQuestions(Number(e.target.value))}
-                    className={styles.select}
-                  >
-                    <option value={3}>3 Questions</option>
-                    <option value={5}>5 Questions</option>
-                    <option value={8}>8 Questions</option>
-                    <option value={10}>10 Questions</option>
-                  </select>
+                  <input
+                    type="checkbox"
+                    checked={voiceEnabled}
+                    onChange={(e) => setVoiceEnabled(e.target.checked)}
+                    className={styles.voiceToggleInput}
+                  />
+                  🔊 Voice Agent
                 </label>
               </div>
+              <div className={styles.timer}>
+                ⏱️ {formatTime(timer)}
+              </div>
             </div>
+          </header>
 
-            <button 
-              className={styles.startButton}
-              onClick={generateQuestions}
-              disabled={questionLoading || selectedCategories.length === 0}
-            >
-              {questionLoading ? (
-                <LoadingSpinner size="small" text="Generating Questions..." />
-              ) : (
-                'Start Interview'
-              )}
-            </button>
-          </div>
-        ) : interviewComplete ? (
-          <div className={styles.completion}>
-            <div className={styles.completionCard}>
-              <h2>Interview Complete! 🎉</h2>
-              <div className={styles.stats}>
-                <div className={styles.stat}>
-                  <span className={styles.statLabel}>Total Time</span>
-                  <span className={styles.statValue}>{formatTime(timer)}</span>
-                </div>
-                <div className={styles.stat}>
-                  <span className={styles.statLabel}>Questions Answered</span>
-                  <span className={styles.statValue}>{questionHistory.length}</span>
-                </div>
-                <div className={styles.stat}>
-                  <span className={styles.statLabel}>Average Score</span>
-                  <span className={styles.statValue}>
-                    {Math.round(interviewScore / questionHistory.length)}/10
-                  </span>
+          {error && (
+            <ErrorMessage 
+              error={error} 
+              onRetry={() => setError(null)}
+              onDismiss={() => setError(null)}
+            />
+          )}
+
+          {!interviewStarted ? (
+            <div className={styles.setup}>
+              <div className={styles.setupSection}>
+                <h2>Select Question Categories</h2>
+                <div className={styles.categories}>
+                  {categories.map(category => (
+                    <div
+                      key={category.id}
+                      className={`${styles.categoryCard} ${
+                        selectedCategories.includes(category.id) ? styles.selected : ''
+                      } ${category.id === 'resume' && resumeText && jobDescText ? styles.resumeComplete : ''}`}
+                      onClick={() => handleCategoryToggle(category.id)}
+                      style={{
+                        opacity: selectedCategories.includes('resume') && category.id !== 'resume' ? 0.5 : 1,
+                        cursor: selectedCategories.includes('resume') && category.id !== 'resume' ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      <div className={styles.categoryIcon}>{category.icon}</div>
+                      <div className={styles.categoryInfo}>
+                        <h3>{category.name}</h3>
+                        <p>{category.description}</p>
+                      </div>
+                      {category.id === 'resume' && resumeText && jobDescText && (
+                        <div className={styles.resumeTick}>✅</div>
+                      )}
+                      {category.id === 'resume' && selectedCategories.includes('resume') && (
+                        <button 
+                          className={styles.removeResumeButton}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeResumeCategory();
+                          }}
+                          title="Remove Resume Interview"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
-              <button className={styles.resetButton} onClick={resetInterview}>
-                Start New Interview
+
+              <div className={styles.setupSection}>
+                <h2>Interview Settings</h2>
+                <div className={styles.settings}>
+                  <label>
+                    Number of Questions:
+                    <select 
+                      value={totalQuestions} 
+                      onChange={(e) => setTotalQuestions(Number(e.target.value))}
+                      className={styles.select}
+                    >
+                      <option value={3}>3 Questions</option>
+                      <option value={5}>5 Questions</option>
+                      <option value={8}>8 Questions</option>
+                      <option value={10}>10 Questions</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+
+              <button 
+                className={styles.startButton}
+                onClick={handleStartInterview}
+                disabled={questionLoading || selectedCategories.length === 0}
+              >
+                {questionLoading ? (
+                  <LoadingSpinner size="small" text="Generating Questions..." />
+                ) : (
+                  'Start Interview'
+                )}
               </button>
             </div>
-          </div>
-        ) : (
-          <div className={styles.interview}>
-            <div className={styles.questionSection}>
-              <div className={styles.questionHeader}>
-                <span className={styles.questionNumber}>
-                  Question {currentQuestionIndex + 1} of {questionHistory.length}
-                </span>
-                <div className={styles.navigation}>
-                  <button 
-                    onClick={handlePreviousQuestion}
-                    disabled={currentQuestionIndex === 0}
-                    className={styles.navButton}
-                  >
-                    ← Previous
-                  </button>
-                  <button 
-                    onClick={handleNextQuestion}
-                    className={styles.navButton}
-                  >
-                    Next →
-                  </button>
+          ) : interviewComplete ? (
+            <div className={styles.completion}>
+              <div className={styles.completionCard}>
+                <h2>Interview Complete! 🎉</h2>
+                <div className={styles.stats}>
+                  <div className={styles.stat}>
+                    <span className={styles.statLabel}>Total Time</span>
+                    <span className={styles.statValue}>{formatTime(timer)}</span>
+                  </div>
+                  <div className={styles.stat}>
+                    <span className={styles.statLabel}>Questions Answered</span>
+                    <span className={styles.statValue}>{questionHistory.length}</span>
+                  </div>
+                  <div className={styles.stat}>
+                    <span className={styles.statLabel}>Average Score</span>
+                    <span className={styles.statValue}>
+                      {Math.round(interviewScore / questionHistory.length)}/10
+                    </span>
+                  </div>
                 </div>
-              </div>
-              
-              <div className={styles.questionCard}>
-                <h3>{currentQuestion}</h3>
-                {voiceEnabled && currentSpeakingText === currentQuestion && (
-                  <VoiceAgent
-                    text={currentQuestion}
-                    autoPlay={true}
-                    onSpeakEnd={() => {
-                      setCurrentSpeakingText('');
-                      lastSpokenTextRef.current = '';
-                    }}
-                  />
-                )}
+                <button className={styles.resetButton} onClick={resetInterview}>
+                  Start New Interview
+                </button>
               </div>
             </div>
-
-            <div className={styles.responseSection}>
-              <h3>Your Response</h3>
-              <div className={styles.voiceInfo}>
-                <span className={styles.voiceIndicator}>
-                  🎤 Voice input available - Click the microphone icon to speak your response
-                </span>
-                <div className={styles.voiceTips}>
-                  <p><strong>Response Tips:</strong></p>
-                  <ul>
-                    <li>Speak clearly and at a normal pace</li>
-                    <li>Use specific examples and numbers when possible</li>
-                    <li>You can edit the text after voice input</li>
-                  </ul>
-                </div>
-              </div>
-              <div className={styles.responseForm}>
-                <div className={styles.responseField}>
-                  <div className={styles.responseFieldHeader}>
-                    <label className={styles.responseLabel}>
-                      Your Answer:
-                    </label>
-                    <VoiceInput
-                      onTranscript={handleVoiceTranscript}
-                      placeholder="Click to speak"
-                    />
+          ) : (
+            <div className={styles.interview}>
+              <div className={styles.questionSection}>
+                <div className={styles.questionHeader}>
+                  <span className={styles.questionNumber}>
+                    Question {currentQuestionIndex + 1} of {questionHistory.length}
+                  </span>
+                  <div className={styles.navigation}>
+                    <button 
+                      onClick={handlePreviousQuestion}
+                      disabled={currentQuestionIndex === 0}
+                      className={styles.navButton}
+                    >
+                      ← Previous
+                    </button>
+                    <button 
+                      onClick={handleNextQuestion}
+                      className={styles.navButton}
+                    >
+                      Next →
+                    </button>
                   </div>
-                  <textarea
-                    value={currentResponse}
-                    onChange={(e) => setCurrentResponse(e.target.value)}
-                    placeholder="Provide a detailed response to the question..."
-                    className={styles.responseTextarea}
-                    rows={8}
-                  />
-                </div>
-              </div>
-
-              <div className={styles.responseActions}>
-                <button 
-                  className={styles.feedbackButton}
-                  onClick={getFeedback}
-                  disabled={feedbackLoading || !currentResponse.trim()}
-                >
-                  {feedbackLoading ? (
-                    <LoadingSpinner size="small" text="Analyzing..." />
-                  ) : (
-                    'Get Feedback'
-                  )}
-                </button>
-                <button 
-                  className={styles.followUpButton}
-                  onClick={generateFollowUpQuestions}
-                  disabled={followUpLoading || !currentResponse.trim() || showFollowUps}
-                >
-                  {followUpLoading ? (
-                    <LoadingSpinner size="small" text="Generating..." />
-                  ) : (
-                    'Get Follow-up Questions'
-                  )}
-                </button>
-              </div>
-
-              {responseFeedback && (
-                <div className={styles.feedbackSection}>
-                  <h4>AI Feedback</h4>
-                  <div className={styles.feedbackCard}>
-                    <div className={styles.feedbackScore}>
-                      Score: {responseFeedback.score || 'N/A'}/10
-                    </div>
-                    <div className={styles.feedbackContent}>
-                      <h5>Strengths:</h5>
-                      <ul>
-                        {responseFeedback.strengths.map((strength, index) => (
-                          <li key={index}>{strength}</li>
-                        ))}
-                      </ul>
-                      <h5>Areas for Improvement:</h5>
-                      <ul>
-                        {responseFeedback.improvements.map((improvement, index) => (
-                          <li key={index}>{improvement}</li>
-                        ))}
-                      </ul>
-                      <h5>Suggestions:</h5>
-                      <p>{responseFeedback.suggestions}</p>
-                      {responseFeedback.starAnalysis && (
-                        <>
-                          <h5>STAR Method Analysis:</h5>
-                          <div className={styles.starAnalysis}>
-                            <div><strong>Situation:</strong> {responseFeedback.starAnalysis.situation}</div>
-                            <div><strong>Task:</strong> {responseFeedback.starAnalysis.task}</div>
-                            <div><strong>Action:</strong> {responseFeedback.starAnalysis.action}</div>
-                            <div><strong>Result:</strong> {responseFeedback.starAnalysis.result}</div>
-                          </div>
-                        </>
-                      )}
-                      {responseFeedback.resumeAlignment && (
-                        <>
-                          <h5>Resume Alignment:</h5>
-                          <p>{responseFeedback.resumeAlignment}</p>
-                        </>
-                      )}
-                      {responseFeedback.followUpAnalysis && (
-                        <>
-                          <h5>Follow-up Analysis:</h5>
-                          <p>{responseFeedback.followUpAnalysis}</p>
-                        </>
-                      )}
-                    </div>
+                  <div className={styles.interviewControls}>
+                    <button 
+                      onClick={endInterviewEarly}
+                      className={styles.endButton}
+                      title="End interview and save progress"
+                    >
+                      🏁 End Interview
+                    </button>
+                    <button 
+                      onClick={restartInterview}
+                      className={styles.restartButton}
+                      title="Restart interview with same settings"
+                    >
+                      🔄 Restart
+                    </button>
                   </div>
-                  {voiceEnabled && (
+                </div>
+                
+                <div className={styles.questionCard}>
+                  <h3>{currentQuestion}</h3>
+                  {voiceEnabled && currentSpeakingText === currentQuestion && (
                     <VoiceAgent
-                      text={`Here's your feedback. Your score is ${responseFeedback.score || 'N/A'} out of 10. ${responseFeedback.strengths.join(' ')} ${responseFeedback.improvements.join(' ')} ${responseFeedback.suggestions}`}
+                      text={currentQuestion}
                       autoPlay={true}
                       onSpeakEnd={() => {
                         setCurrentSpeakingText('');
@@ -840,139 +973,371 @@ export default function BehavioralInterview() {
                     />
                   )}
                 </div>
-              )}
+              </div>
 
-              {showFollowUps && followUpQuestions.length > 0 && (
-                <div className={styles.followUpSection}>
-                  <h4>Follow-up Questions</h4>
-                  <div className={styles.followUpCard}>
-                    <div className={styles.followUpHeader}>
-                      <span className={styles.followUpNumber}>
-                        Follow-up {currentFollowUpIndex + 1} of {followUpQuestions.length}
-                      </span>
-                      <div className={styles.followUpNavigation}>
-                        <button 
-                          onClick={handlePreviousFollowUp}
-                          disabled={currentFollowUpIndex === 0}
-                          className={styles.navButton}
-                        >
-                          ← Previous
-                        </button>
-                        <button 
-                          onClick={handleNextFollowUp}
-                          disabled={currentFollowUpIndex === followUpQuestions.length - 1}
-                          className={styles.navButton}
-                        >
-                          Next →
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <div className={styles.followUpQuestion}>
-                      <h5>{followUpQuestions[currentFollowUpIndex]}</h5>
-                      {voiceEnabled && currentSpeakingText === followUpQuestions[currentFollowUpIndex] && (
-                        <VoiceAgent
-                          text={followUpQuestions[currentFollowUpIndex]}
-                          autoPlay={true}
-                          onSpeakEnd={() => {
-                            setCurrentSpeakingText('');
-                            lastSpokenTextRef.current = '';
-                          }}
-                        />
-                      )}
-                    </div>
-
-                    <div className={styles.followUpResponse}>
-                      <div className={styles.starFieldHeader}>
-                        <label className={styles.starLabel}>Your Response:</label>
-                        <VoiceInput
-                          onTranscript={handleFollowUpVoiceTranscript(currentFollowUpIndex)}
-                          placeholder="Click to speak"
-                        />
-                      </div>
-                      <textarea
-                        value={followUpResponses[currentFollowUpIndex] || ''}
-                        onChange={(e) => setFollowUpResponses(prev => ({
-                          ...prev,
-                          [currentFollowUpIndex]: e.target.value
-                        }))}
-                        placeholder="Provide a detailed response to the follow-up question..."
-                        className={styles.starTextarea}
-                        rows={3}
-                      />
-                    </div>
+              <div className={styles.responseSection}>
+                <h3>Your Response</h3>
+                <div className={styles.voiceInfo}>
+                  <span className={styles.voiceIndicator}>
+                    🎤 Voice input available - Click the microphone icon to speak your response
+                  </span>
+                  <div className={styles.voiceTips}>
+                    <p><strong>Response Tips:</strong></p>
+                    <ul>
+                      <li>Speak clearly and at a normal pace</li>
+                      <li>Use specific examples and numbers when possible</li>
+                      <li>You can edit the text after voice input</li>
+                    </ul>
                   </div>
                 </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-      
-      {/* Resume Interview Modal */}
-      <Modal
-        open={showResumeModal}
-        onClose={cancelResumeModal}
-        title="Resume Interview Setup"
-      >
-        <div className={styles.modalContent}>
-          <div className={styles.modalSection}>
-            <h3>Upload Your Resume</h3>
-            <p>Upload your resume (PDF or TXT) to get personalized interview questions based on your experience.</p>
-            <div className={styles.modalUploadField}>
-              <input 
-                type="file" 
-                accept=".pdf,.txt" 
-                onChange={handleModalResumeUpload}
-                className={styles.modalFileInput}
-              />
-              {modalResumeFile && (
-                <div className={styles.modalFileInfo}>
-                  <span className={styles.modalFileName}>{modalResumeFile.name}</span>
+                <div className={styles.responseForm}>
+                  <div className={styles.responseField}>
+                    <div className={styles.responseFieldHeader}>
+                      <label className={styles.responseLabel}>
+                        Your Answer:
+                      </label>
+                      <VoiceInput
+                        onTranscript={handleVoiceTranscript}
+                        placeholder="Click to speak"
+                      />
+                    </div>
+                    <textarea
+                      value={currentResponse}
+                      onChange={(e) => setCurrentResponse(e.target.value)}
+                      placeholder="Provide a detailed response to the question..."
+                      className={styles.responseTextarea}
+                      rows={8}
+                    />
+                  </div>
+                </div>
+
+                <div className={styles.responseActions}>
                   <button 
-                    className={styles.modalRemoveButton} 
-                    onClick={() => { setModalResumeFile(null); setModalResumeText(''); }}
+                    className={styles.feedbackButton}
+                    onClick={getFeedback}
+                    disabled={feedbackLoading || !currentResponse.trim()}
                   >
-                    Remove
+                    {feedbackLoading ? (
+                      <LoadingSpinner size="small" text="Analyzing..." />
+                    ) : (
+                      'Get Feedback'
+                    )}
                   </button>
+                  <button 
+                    className={styles.followUpButton}
+                    onClick={generateFollowUpQuestions}
+                    disabled={followUpLoading || !currentResponse.trim() || showFollowUps}
+                  >
+                    {followUpLoading ? (
+                      <LoadingSpinner size="small" text="Generating..." />
+                    ) : (
+                      'Get Follow-up Questions'
+                    )}
+                  </button>
+                </div>
+
+                {responseFeedback && (
+                  <div className={styles.feedbackSection}>
+                    <h4>AI Feedback</h4>
+                    <div className={styles.feedbackCard}>
+                      <div className={styles.feedbackScore}>
+                        Score: {responseFeedback.score || 'N/A'}/10
+                      </div>
+                      <div className={styles.feedbackContent}>
+                        <h5>Strengths:</h5>
+                        <ul>
+                          {responseFeedback.strengths.map((strength, index) => (
+                            <li key={index}>{strength}</li>
+                          ))}
+                        </ul>
+                        <h5>Areas for Improvement:</h5>
+                        <ul>
+                          {responseFeedback.improvements.map((improvement, index) => (
+                            <li key={index}>{improvement}</li>
+                          ))}
+                        </ul>
+                        <h5>Suggestions:</h5>
+                        <p>{responseFeedback.suggestions}</p>
+                        {responseFeedback.starAnalysis && (
+                          <>
+                            <h5>STAR Method Analysis:</h5>
+                            <div className={styles.starAnalysis}>
+                              <div><strong>Situation:</strong> {responseFeedback.starAnalysis.situation}</div>
+                              <div><strong>Task:</strong> {responseFeedback.starAnalysis.task}</div>
+                              <div><strong>Action:</strong> {responseFeedback.starAnalysis.action}</div>
+                              <div><strong>Result:</strong> {responseFeedback.starAnalysis.result}</div>
+                            </div>
+                          </>
+                        )}
+                        {responseFeedback.resumeAlignment && (
+                          <>
+                            <h5>Resume Alignment:</h5>
+                            <p>{responseFeedback.resumeAlignment}</p>
+                          </>
+                        )}
+                        {responseFeedback.followUpAnalysis && (
+                          <>
+                            <h5>Follow-up Analysis:</h5>
+                            <p>{responseFeedback.followUpAnalysis}</p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    {voiceEnabled && (
+                      <VoiceAgent
+                        text={`Here's your feedback. Your score is ${responseFeedback.score || 'N/A'} out of 10. ${responseFeedback.strengths.join(' ')} ${responseFeedback.improvements.join(' ')} ${responseFeedback.suggestions}`}
+                        autoPlay={true}
+                        onSpeakEnd={() => {
+                          setCurrentSpeakingText('');
+                          lastSpokenTextRef.current = '';
+                        }}
+                      />
+                    )}
+                  </div>
+                )}
+
+                {showFollowUps && followUpQuestions.length > 0 && (
+                  <div className={styles.followUpSection}>
+                    <h4>Follow-up Questions</h4>
+                    <div className={styles.followUpCard}>
+                      <div className={styles.followUpHeader}>
+                        <span className={styles.followUpNumber}>
+                          Follow-up {currentFollowUpIndex + 1} of {followUpQuestions.length}
+                        </span>
+                        <div className={styles.followUpNavigation}>
+                          <button 
+                            onClick={handlePreviousFollowUp}
+                            disabled={currentFollowUpIndex === 0}
+                            className={styles.navButton}
+                          >
+                            ← Previous
+                          </button>
+                          <button 
+                            onClick={handleNextFollowUp}
+                            disabled={currentFollowUpIndex === followUpQuestions.length - 1}
+                            className={styles.navButton}
+                          >
+                            Next →
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div className={styles.followUpQuestion}>
+                        <h5>{followUpQuestions[currentFollowUpIndex]}</h5>
+                        {voiceEnabled && currentSpeakingText === followUpQuestions[currentFollowUpIndex] && (
+                          <VoiceAgent
+                            text={followUpQuestions[currentFollowUpIndex]}
+                            autoPlay={true}
+                            onSpeakEnd={() => {
+                              setCurrentSpeakingText('');
+                              lastSpokenTextRef.current = '';
+                            }}
+                          />
+                        )}
+                      </div>
+
+                      <div className={styles.followUpResponse}>
+                        <div className={styles.starFieldHeader}>
+                          <label className={styles.starLabel}>Your Response:</label>
+                          <VoiceInput
+                            onTranscript={handleFollowUpVoiceTranscript(currentFollowUpIndex)}
+                            placeholder="Click to speak"
+                          />
+                        </div>
+                        <textarea
+                          value={followUpResponses[currentFollowUpIndex] || ''}
+                          onChange={(e) => setFollowUpResponses(prev => ({
+                            ...prev,
+                            [currentFollowUpIndex]: e.target.value
+                          }))}
+                          placeholder="Provide a detailed response to the follow-up question..."
+                          className={styles.starTextarea}
+                          rows={3}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {/* Resume Interview Modal */}
+        <Modal
+          open={showResumeModal}
+          onClose={cancelResumeModal}
+          title="Resume Interview Setup"
+        >
+          <div className={styles.modalContent}>
+            {/* Saved Resumes Section */}
+            <div className={styles.modalSection}>
+              <h3>Saved Resumes</h3>
+              <p>Select from your previously uploaded resumes or upload a new one below.</p>
+              {loadingResumes ? (
+                <div className={styles.modalLoading}>Loading saved resumes...</div>
+              ) : savedResumes.length > 0 ? (
+                <div className={styles.savedResumesList}>
+                  {savedResumes.map((resume) => (
+                    <div 
+                      key={resume.id} 
+                      className={`${styles.savedResumeItem} ${selectedResumeId === resume.id ? styles.selected : ''}`}
+                      onClick={() => selectSavedResume(resume)}
+                    >
+                      <div className={styles.savedResumeInfo}>
+                        <span className={styles.savedResumeName}>{resume.filename}</span>
+                        <span className={styles.savedResumeDate}>
+                          {new Date(resume.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <div className={styles.savedResumeActions}>
+                        <button 
+                          className={styles.savedResumeSelect}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            selectSavedResume(resume);
+                          }}
+                        >
+                          {selectedResumeId === resume.id ? '✓ Selected' : 'Select'}
+                        </button>
+                        <button 
+                          className={styles.savedResumeDelete}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteSavedResume(resume.id);
+                          }}
+                          title="Delete resume"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className={styles.noSavedResumes}>
+                  <p>No saved resumes yet. Upload your first resume below.</p>
                 </div>
               )}
             </div>
-          </div>
 
-          <div className={styles.modalSection}>
-            <h3>Job Description (Optional)</h3>
-            <p>Add the job description to get more targeted questions.</p>
-            <textarea
-              value={modalJobDescText}
-              onChange={(e) => setModalJobDescText(e.target.value)}
-              placeholder="Paste the job description here..."
-              className={styles.modalTextarea}
-              rows={6}
-            />
-          </div>
+            <div className={styles.modalSection}>
+              <h3>Upload New Resume</h3>
+              <p>Upload your resume (PDF or TXT) to get personalized interview questions based on your experience.</p>
+              <div className={styles.modalUploadField}>
+                <input 
+                  type="file" 
+                  accept=".pdf,.txt" 
+                  onChange={handleModalResumeUpload}
+                  className={styles.modalFileInput}
+                />
+                {modalResumeFile && (
+                  <div className={styles.modalFileInfo}>
+                    <span className={styles.modalFileName}>{modalResumeFile.name}</span>
+                    <button 
+                      className={styles.modalRemoveButton} 
+                      onClick={() => { 
+                        setModalResumeFile(null); 
+                        setModalResumeText(''); 
+                        setSelectedResumeId(null);
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
 
-          {modalFileError && (
-            <div className={styles.modalError}>{modalFileError}</div>
-          )}
+            <div className={styles.modalSection}>
+              <h3>Job Description (Optional)</h3>
+              <p>Add the job description to get more targeted questions.</p>
+              <textarea
+                value={modalJobDescText}
+                onChange={(e) => setModalJobDescText(e.target.value)}
+                placeholder="Paste the job description here..."
+                className={styles.modalTextarea}
+                rows={6}
+              />
+            </div>
 
-          <div className={styles.modalActions}>
-            <button 
-              className={styles.modalCancelButton} 
-              onClick={cancelResumeModal}
-            >
-              Cancel
-            </button>
-            <button 
-              className={styles.modalConfirmButton} 
-              onClick={confirmResumeModal}
-              disabled={!modalResumeText.trim()}
-            >
-              Confirm & Add Resume Interview
-            </button>
+            {modalFileError && (
+              <div className={styles.modalError}>{modalFileError}</div>
+            )}
+
+            <div className={styles.modalActions}>
+              <button 
+                className={styles.modalCancelButton} 
+                onClick={cancelResumeModal}
+              >
+                Cancel
+              </button>
+              <button 
+                className={styles.modalConfirmButton} 
+                onClick={confirmResumeModal}
+                disabled={!modalResumeText.trim()}
+              >
+                Confirm & Add Resume Interview
+              </button>
+            </div>
           </div>
-        </div>
-      </Modal>
-    </div>
+        </Modal>
+
+        {/* Config Modal */}
+        <Modal
+          open={showConfigModal}
+          onClose={() => setShowConfigModal(false)}
+          title="Interview Configuration"
+        >
+          <div className={styles.modalContent}>
+            <div className={styles.modalSection}>
+              <h3>Customize Interview Context</h3>
+              <label className={styles.configLabel}>
+                Role/Position:
+                <input
+                  type="text"
+                  value={role}
+                  onChange={e => setRole(e.target.value)}
+                  className={styles.configInput}
+                  placeholder="e.g. Software Engineer"
+                />
+              </label>
+              <label className={styles.configLabel}>
+                Years of Experience:
+                <input
+                  type="number"
+                  min="0"
+                  max="50"
+                  value={experience}
+                  onChange={e => setExperience(e.target.value)}
+                  className={styles.configInput}
+                  placeholder="e.g. 3"
+                />
+              </label>
+              <label className={styles.configLabel}>
+                Industry:
+                <select
+                  value={industry}
+                  onChange={e => setIndustry(e.target.value)}
+                  className={styles.configInput}
+                >
+                  {industryOptions.map(opt => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className={styles.modalActions}>
+              <button className={styles.modalCancelButton} onClick={() => setShowConfigModal(false)}>
+                Cancel
+              </button>
+              <button className={styles.modalConfirmButton} onClick={handleConfirmConfig}>
+                Confirm & Start Interview
+              </button>
+            </div>
+          </div>
+        </Modal>
+      </div>
+    </ProtectedRoute>
   );
 } 

@@ -1,6 +1,4 @@
-import OpenAI from 'openai';
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+import { generateTextGroq } from '../../utils/groq';
 
 // Map Judge0 language IDs to language names
 const languageMap = {
@@ -34,18 +32,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [
-        { role: 'system', content: `You are an expert coding assistant. Given the following code or problem, write a complete, correct solution in ${language}. Only output code, no explanation, no comments unless required by the language.${questionContext}` },
-        { role: 'user', content: code ? `Write a complete solution in ${language} for the following code or problem:\n\n${code}` : `Write a complete solution in ${language} for the above problem.` },
-      ],
-      temperature: 0.2,
-      max_tokens: 512,
-    });
+    const prompt = `You are an expert coding assistant. Given the following code or problem, write a complete, correct solution in ${language}. Only output code, no explanation, no comments unless required by the language.${questionContext}
 
-    const solution = completion.choices[0].message.content.trim();
-    res.status(200).json({ solution });
+${code ? `Write a complete solution in ${language} for the following code or problem:\n\n${code}` : `Write a complete solution in ${language} for the above problem.`}`;
+
+    const solution = await generateTextGroq(prompt, 512);
+    res.status(200).json({ solution: solution.trim() });
   } catch (err) {
     console.error('Solve error:', err);
     res.status(500).json({ error: 'Failed to solve code', details: err.message });

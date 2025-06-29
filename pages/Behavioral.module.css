@@ -324,6 +324,50 @@
   cursor: not-allowed;
 }
 
+.interviewControls {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.endButton {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  color: #fca5a5;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 500;
+}
+
+.endButton:hover {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: #ef4444;
+  transform: translateY(-1px);
+  color: #fecaca;
+}
+
+.restartButton {
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  color: #93c5fd;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 500;
+}
+
+.restartButton:hover {
+  background: rgba(59, 130, 246, 0.3);
+  border-color: #3b82f6;
+  transform: translateY(-1px);
+  color: #dbeafe;
+}
+
 .questionCard h3 {
   margin: 0;
   font-size: 1.3rem;
@@ -721,6 +765,34 @@
     width: 100%;
     justify-content: space-between;
   }
+
+  .interviewControls {
+    width: 100%;
+    justify-content: space-between;
+    margin-left: 0;
+    margin-top: 0.5rem;
+  }
+
+  .endButton, .restartButton {
+    flex: 1;
+    text-align: center;
+  }
+
+  .savedResumeItem {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .savedResumeActions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .savedResumeSelect {
+    flex: 1;
+    margin-right: 0.5rem;
+  }
 }
 
 @media (max-width: 480px) {
@@ -900,80 +972,142 @@
   box-shadow: none;
 }
 
-@media (max-width: 768px) {
-  .header {
-    flex-direction: column;
-    gap: 1rem;
-    text-align: center;
-    padding: 1.5rem;
-  }
-  
-  .title {
-    font-size: 2rem;
-  }
-  
-  .headerControls {
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-  
-  .setup, .interview {
-    padding: 1rem;
-  }
-  
-  .categories {
-    grid-template-columns: 1fr;
-  }
-  
-  .responseActions {
-    flex-direction: column;
-  }
-  
-  .feedbackButton, .followUpButton {
-    min-width: auto;
-  }
-  
-  .stats {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-  
-  .followUpHeader {
-    flex-direction: column;
-    gap: 1rem;
-    align-items: flex-start;
-  }
-  
-  .questionHeader {
-    flex-direction: column;
-    gap: 1rem;
-    align-items: flex-start;
-  }
-  
-  .navigation {
-    width: 100%;
-    justify-content: space-between;
-  }
+/* Saved Resumes Styles */
+.modalLoading {
+  text-align: center;
+  padding: 1rem;
+  color: #666;
+  font-style: italic;
 }
 
-@media (max-width: 480px) {
-  .header {
-    padding: 1rem;
-  }
-  
-  .title {
-    font-size: 1.75rem;
-  }
-  
-  .setupSection, .questionSection, .responseSection {
-    padding: 1.5rem;
-  }
-  
-  .completionCard {
-    padding: 2rem;
-  }
-  
-  .completionCard h2 {
-    font-size: 1.5rem;
-  }
+.savedResumesList {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.savedResumeItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.savedResumeItem:last-child {
+  border-bottom: none;
+}
+
+.savedResumeItem:hover {
+  background: #f3f4f6;
+}
+
+.savedResumeItem.selected {
+  background: #dbeafe;
+  border-left: 4px solid #3b82f6;
+}
+
+.savedResumeInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.savedResumeName {
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.95rem;
+}
+
+.savedResumeDate {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.savedResumeActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.savedResumeSelect {
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.savedResumeSelect:hover {
+  background: #2563eb;
+}
+
+.savedResumeDelete {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.savedResumeDelete:hover {
+  background: #dc2626;
+}
+
+.noSavedResumes {
+  text-align: center;
+  padding: 2rem;
+  color: #6b7280;
+  background: #f9fafb;
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+}
+
+.noSavedResumes p {
+  margin: 0;
+  font-style: italic;
+}
+
+.configLabel {
+  display: block;
+  margin-bottom: 1.2rem;
+  font-weight: 500;
+  color: #374151;
+  font-size: 1rem;
+}
+
+.configInput {
+  display: block;
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.7rem 1rem;
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-family: inherit;
+  background: #f9fafb;
+  color: #222;
+  transition: border-color 0.2s;
+}
+
+.configInput:focus {
+  outline: none;
+  border-color: #667eea;
+  background: #fff;
 } 

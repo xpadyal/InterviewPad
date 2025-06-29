@@ -1,6 +1,4 @@
-import OpenAI from 'openai';
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+import { generateTextGroq } from '../../utils/groq';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -22,16 +20,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [
-        { role: 'system', content: `You are an expert coding interviewer and code reviewer. Critique the candidate's code as if in a technical interview. Be strict but constructive. Point out code quality, style, efficiency, correctness, and possible improvements. Suggest best practices, but do not rewrite the code. End with a brief summary of the candidate's strengths and areas for improvement.${questionContext}` },
-        { role: 'user', content: `Here is my code:\n\n${code}\n\nPlease critique my code as an interviewer would.` },
-      ],
-      temperature: 0.7,
-    });
+    const prompt = `You are an expert coding interviewer and code reviewer. Critique the candidate's code as if in a technical interview. Be strict but constructive. Point out code quality, style, efficiency, correctness, and possible improvements. Suggest best practices, but do not rewrite the code. End with a brief summary of the candidate's strengths and areas for improvement.${questionContext}
 
-    const critique = completion.choices[0].message.content;
+Here is my code:
+
+${code}
+
+Please critique my code as an interviewer would.`;
+
+    const critique = await generateTextGroq(prompt, 800);
     res.status(200).json({ critique });
   } catch (err) {
     console.error('Critic error:', err);

@@ -85,6 +85,173 @@
   font-size: 0.95rem;
 }
 
+/* Authentication Styles */
+.authSection {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.authButtons {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.loginButton {
+  padding: 0.5rem 1rem;
+  text-decoration: none;
+  color: #667eea;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.loginButton:hover {
+  background: rgba(102, 126, 234, 0.1);
+  border-color: #667eea;
+}
+
+.registerButton {
+  padding: 0.5rem 1rem;
+  text-decoration: none;
+  color: white;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.registerButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+}
+
+.userMenu {
+  position: relative;
+}
+
+.userButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: none;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+}
+
+.userButton:hover {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.05);
+}
+
+.userAvatar {
+  font-size: 1.2rem;
+}
+
+.userName {
+  font-weight: 600;
+  color: #333;
+}
+
+.dropdownArrow {
+  font-size: 0.8rem;
+  color: #666;
+  transition: transform 0.3s ease;
+}
+
+.userDropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 0.5rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  border: 1px solid #e2e8f0;
+  min-width: 200px;
+  z-index: 1001;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.userInfo {
+  padding: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.userEmail {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.profileLink {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #667eea;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 0.3s ease;
+}
+
+.profileLink:hover {
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.logoutButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #e53e3e;
+  font-weight: 600;
+  transition: background-color 0.3s ease;
+  border-radius: 0 0 12px 12px;
+}
+
+.logoutButton:hover {
+  background: #fee;
+}
+
+.loadingSpinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e2e8f0;
+  border-top: 2px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 .mobileMenuButton {
   display: none;
   background: none;
@@ -170,13 +337,98 @@
   font-weight: 600;
 }
 
+/* Mobile Auth Styles */
+.mobileAuth {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.mobileUserInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0;
+  font-weight: 600;
+  color: #333;
+}
+
+.mobileLoginButton,
+.mobileRegisterButton,
+.mobileProfileButton {
+  display: block;
+  width: 100%;
+  padding: 0.75rem;
+  text-decoration: none;
+  text-align: center;
+  border-radius: 8px;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  transition: all 0.3s ease;
+}
+
+.mobileLoginButton {
+  color: #667eea;
+  border: 2px solid #667eea;
+  background: transparent;
+}
+
+.mobileLoginButton:hover {
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.mobileRegisterButton {
+  color: white;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+}
+
+.mobileRegisterButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+}
+
+.mobileProfileButton {
+  color: #667eea;
+  border: 2px solid #667eea;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.mobileProfileButton:hover {
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.mobileLogoutButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem;
+  background: none;
+  border: 2px solid #e53e3e;
+  color: #e53e3e;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.mobileLogoutButton:hover {
+  background: #fee;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .navContainer {
     padding: 0 1rem;
   }
   
-  .desktopNav {
+  .desktopNav,
+  .authSection {
     display: none;
   }
   

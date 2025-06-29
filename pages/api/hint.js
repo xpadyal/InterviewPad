@@ -1,7 +1,5 @@
 // pages/api/hint.js
-import OpenAI from 'openai';
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+import { generateTextGroq } from '../../utils/groq';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -21,16 +19,11 @@ export default async function handler(req, res) {
   }
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [
-        { role: 'system', content: `You are an expert coding interviewer. Only give small, progressive hints—never full solutions or direct answers. Your hints should help the candidate think, not solve the problem for them. If asked for the answer, politely refuse and encourage them to try.${questionContext}` },
-        { role: 'user', content: code ? `Here is my code:\n\n${code}\n\nCan you give me a hint or explain what might be wrong?` : 'Can you give me a hint for this problem?' },
-      ],
-      temperature: 0.7,
-    });
+    const prompt = `You are an expert coding interviewer. Only give small, progressive hints—never full solutions or direct answers. Your hints should help the candidate think, not solve the problem for them. If asked for the answer, politely refuse and encourage them to try.${questionContext}
 
-    const hint = completion.choices[0].message.content;
+${code ? `Here is my code:\n\n${code}\n\nCan you give me a hint or explain what might be wrong?` : 'Can you give me a hint for this problem?'}`;
+
+    const hint = await generateTextGroq(prompt, 300);
     res.status(200).json({ hint });
   } catch (err) {
     console.error('Hint error:', err);

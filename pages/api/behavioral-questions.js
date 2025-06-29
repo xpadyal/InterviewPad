@@ -1,8 +1,4 @@
-import OpenAI from 'openai';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import { generateTextGroq } from '../../utils/groq';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -10,7 +6,9 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { categories, count } = req.body;
+    const { categories, count, role, experience, industry } = req.body;
+
+    console.log('Received request:', { categories, count, role, experience, industry });
 
     if (!categories || !Array.isArray(categories) || categories.length === 0) {
       return res.status(400).json({ error: 'Categories are required' });
@@ -29,12 +27,20 @@ export default async function handler(req, res) {
       adaptability: 'adaptability and learning new skills',
       teamwork: 'teamwork and collaboration',
       stress: 'stress management and working under pressure',
-      initiative: 'initiative and taking ownership'
+      initiative: 'initiative and taking ownership',
+      resume: 'resume-based questions'
     };
 
-    const selectedCategories = categories.map(cat => categoryMappings[cat] || cat).join(', ');
+    const selectedCategories = categories.map(cat => categoryMappings[cat] || cat);
+    console.log('Selected categories:', selectedCategories);
 
-    const prompt = `Generate ${count} behavioral interview questions covering these areas: ${selectedCategories}.
+    // Generate questions using Groq
+    let context = '';
+    if (role) context += `Role: ${role}. `;
+    if (experience) context += `Experience: ${experience} years. `;
+    if (industry) context += `Industry: ${industry}. `;
+
+    const prompt = `${context}Generate ${count} behavioral interview questions covering these areas: ${selectedCategories.join(', ')}.
 
 Each question should be:
 - Specific and actionable
@@ -43,7 +49,7 @@ Each question should be:
 - Varied in difficulty and scope
 - Realistic and commonly asked in interviews
 
-Format the response as a JSON array of strings, where each string is a question.
+Format as a JSON array of strings, where each string is a question.
 
 Example format:
 [
@@ -52,35 +58,33 @@ Example format:
   "Give me an example of a time when you had to solve a complex problem with limited resources."
 ]`;
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        {
-          role: "system",
-          content: "You are an expert HR professional and interview coach. Generate high-quality behavioral interview questions that help assess candidates' real-world experience and competencies."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 1000,
-    });
+    const response = await generateTextGroq(prompt, 1000);
+    console.log('Generated response:', response);
 
-    const response = completion.choices[0].message.content;
-    
-    // Parse the JSON response
+    // Try to parse JSON from the response
     let questions;
     try {
-      questions = JSON.parse(response);
+      const jsonMatch = response.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        questions = JSON.parse(jsonMatch[0]);
+      } else {
+        // If no JSON found, split by lines and clean up
+        const lines = response.split('\n').filter(line => line.trim());
+        questions = lines
+          .map(line => line.replace(/^\d+\.\s*/, '').replace(/^["']|["']$/g, ''))
+          .filter(line => line.length > 10 && line.includes('?'))
+          .slice(0, count);
+      }
     } catch (parseError) {
-      // If JSON parsing fails, try to extract questions from the response
-      const lines = response.split('\n').filter(line => line.trim());
-      questions = lines
-        .map(line => line.replace(/^\d+\.\s*/, '').replace(/^["']|["']$/g, ''))
-        .filter(line => line.length > 10);
+      console.error('Failed to parse JSON response:', parseError);
+      // Fallback: return the raw response split into questions
+      questions = response.split('\n')
+        .filter(line => line.trim() && line.includes('?'))
+        .map(line => line.replace(/^\d+\.\s*/, '').trim())
+        .slice(0, count);
     }
+
+    console.log('Parsed questions:', questions);
 
     // Ensure we have the right number of questions
     if (!Array.isArray(questions) || questions.length === 0) {
@@ -88,11 +92,14 @@ Example format:
     }
 
     // Limit to requested count
-    questions = questions.slice(0, count);
+    const finalQuestions = questions.slice(0, count);
 
-    res.status(200).json({ questions });
+    res.status(200).json({ questions: finalQuestions });
   } catch (error) {
     console.error('Error generating behavioral questions:', error);
-    res.status(500).json({ error: 'Failed to generate questions' });
+    res.status(500).json({ 
+      error: 'Failed to generate questions',
+      details: error.message 
+    });
   }
 } 

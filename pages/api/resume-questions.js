@@ -1,8 +1,4 @@
-import OpenAI from 'openai';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import { generateTextGroq } from '../../utils/groq';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -12,7 +8,7 @@ export default async function handler(req, res) {
   try {
     const { resumeText, jobDescription, count } = req.body;
 
-    if (!resumeText || !resumeText.trim()) {
+    if (!resumeText) {
       return res.status(400).json({ error: 'Resume text is required' });
     }
 
@@ -46,43 +42,31 @@ Focus on:
 - Career transitions or growth patterns
 - ${jobDescription ? 'How their experience relates to the target role' : 'Their professional development'}
 
-Format the response as a JSON array of strings, where each string is a question.
+Format the response as a JSON array of strings, where each string is a question.`;
 
-Example format:
-[
-  "I see you worked on [specific project/technology] at [company]. Can you tell me about a challenging situation you faced while working on that project?",
-  "Your resume mentions you led a team of [X] people. Describe a time when you had to motivate your team through a difficult period.",
-  "You've worked with [specific technology/methodology]. Give me an example of how you applied this in a real-world scenario."
-]`;
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        {
-          role: "system",
-          content: "You are an expert HR professional and interview coach specializing in resume-based interviews. Generate personalized, high-quality behavioral interview questions that are specifically tailored to the candidate's background and experience. Focus on creating questions that reference their actual work history and achievements."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 1500,
-    });
-
-    const response = completion.choices[0].message.content;
+    const response = await generateTextGroq(prompt, 1000);
     
-    // Parse the JSON response
+    // Try to parse JSON from the response
     let questions;
     try {
-      questions = JSON.parse(response);
+      const jsonMatch = response.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        questions = JSON.parse(jsonMatch[0]);
+      } else {
+        // If no JSON found, split by lines and clean up
+        const lines = response.split('\n').filter(line => line.trim());
+        questions = lines
+          .map(line => line.replace(/^\d+\.\s*/, '').replace(/^["']|["']$/g, ''))
+          .filter(line => line.length > 10 && line.includes('?'))
+          .slice(0, count);
+      }
     } catch (parseError) {
-      // If JSON parsing fails, try to extract questions from the response
-      const lines = response.split('\n').filter(line => line.trim());
-      questions = lines
-        .map(line => line.replace(/^\d+\.\s*/, '').replace(/^["']|["']$/g, ''))
-        .filter(line => line.length > 10);
+      console.error('Failed to parse JSON response:', parseError);
+      // Fallback: return the raw response split into questions
+      questions = response.split('\n')
+        .filter(line => line.trim() && line.includes('?'))
+        .map(line => line.replace(/^\d+\.\s*/, '').trim())
+        .slice(0, count);
     }
 
     // Ensure we have the right number of questions
@@ -91,11 +75,11 @@ Example format:
     }
 
     // Limit to requested count
-    questions = questions.slice(0, count);
+    const finalQuestions = questions.slice(0, count);
 
-    res.status(200).json({ questions });
+    res.status(200).json({ questions: finalQuestions });
   } catch (error) {
-    console.error('Error generating resume-based questions:', error);
+    console.error('Error generating resume questions:', error);
     res.status(500).json({ error: 'Failed to generate questions' });
   }
 } 

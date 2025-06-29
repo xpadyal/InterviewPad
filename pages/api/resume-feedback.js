@@ -1,8 +1,4 @@
-import OpenAI from 'openai';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import { generateTextGroq } from '../../utils/groq';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -10,14 +6,11 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { question, response, resumeText, jobDescription, followUpQuestions, followUpResponses } = req.body;
+    const { question, response, resumeText, jobDescription, followUpQuestions = [], followUpResponses = {} } = req.body;
 
     if (!question || !response || !resumeText) {
       return res.status(400).json({ error: 'Question, response, and resume text are required' });
     }
-
-    const jobFitText = jobDescription ? 'Job Fit' : 'Professional Growth';
-    const jobFitQuestion = jobDescription ? 'How well does this demonstrate fit for the target role?' : 'How does this show professional development?';
 
     const prompt = `You are an expert HR professional providing feedback on a resume-based behavioral interview response.
 
@@ -33,11 +26,11 @@ ${question}
 CANDIDATE'S RESPONSE:
 ${response}
 
-${followUpQuestions && followUpQuestions.length > 0 ? `FOLLOW-UP QUESTIONS:
+${followUpQuestions.length > 0 ? `FOLLOW-UP QUESTIONS:
 ${followUpQuestions.join('\n')}
 
 FOLLOW-UP RESPONSES:
-${Object.entries(followUpResponses || {}).map(([index, resp]) => `Q${parseInt(index) + 1}: ${resp}`).join('\n')}` : ''}
+${Object.entries(followUpResponses).map(([index, resp]) => `Q${parseInt(index) + 1}: ${resp}`).join('\n')}` : ''}
 
 Please provide comprehensive feedback on this response considering:
 
@@ -45,7 +38,7 @@ Please provide comprehensive feedback on this response considering:
 2. **STAR Method**: Does the response follow the Situation, Task, Action, Result structure?
 3. **Specificity**: Are there concrete examples, metrics, and details?
 4. **Relevance**: How relevant is the example to the question asked?
-5. **${jobFitText}**: ${jobFitQuestion}
+5. **${jobDescription ? 'Job Fit' : 'Professional Growth'}**: ${jobDescription ? 'How well does this demonstrate fit for the target role?' : 'How does this show professional development?'}
 6. **Communication**: Is the response clear, concise, and well-structured?
 
 Provide feedback in the following JSON format:
@@ -60,32 +53,27 @@ Provide feedback in the following JSON format:
     "action": "Analysis of actions taken",
     "result": "Analysis of results achieved"
   },
-  "resumeAlignment": "How well the response connects to their resume experience",
-  "followUpAnalysis": "Analysis of follow-up responses if provided"
+  "resumeAlignment": "How well the response connects to their resume experience"
 }`;
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        {
-          role: "system",
-          content: "You are an expert HR professional and interview coach specializing in resume-based interviews. Provide detailed, constructive feedback that considers the candidate's actual background and experience. Be specific about how their response relates to their resume and the target role."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 2000,
-    });
-
-    const response_text = completion.choices[0].message.content;
+    const response_text = await generateTextGroq(prompt, 1500);
     
-    // Parse the JSON response
+    // Try to parse JSON from the response
     let feedback;
     try {
-      feedback = JSON.parse(response_text);
+      const jsonMatch = response_text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        feedback = JSON.parse(jsonMatch[0]);
+        
+        // Ensure required fields exist
+        if (!feedback.score) feedback.score = 7;
+        if (!feedback.strengths) feedback.strengths = [];
+        if (!feedback.improvements) feedback.improvements = [];
+        if (!feedback.suggestions) feedback.suggestions = "Good response overall.";
+        
+      } else {
+        throw new Error('No JSON found in response');
+      }
     } catch (parseError) {
       console.error('Failed to parse feedback JSON:', parseError);
       // Fallback feedback structure
@@ -100,23 +88,13 @@ Provide feedback in the following JSON format:
           action: "Actions were outlined",
           result: "Results were discussed"
         },
-        resumeAlignment: "Response connects well to your experience",
-        followUpAnalysis: "Follow-up responses show good engagement"
+        resumeAlignment: "Response connects well to your experience"
       };
     }
 
-    // Ensure required fields exist
-    if (!feedback.score) feedback.score = 7;
-    if (!feedback.strengths) feedback.strengths = [];
-    if (!feedback.improvements) feedback.improvements = [];
-    if (!feedback.suggestions) feedback.suggestions = "Good response overall.";
-
-    res.status(200).json({ 
-      feedback,
-      score: feedback.score 
-    });
+    res.status(200).json({ feedback });
   } catch (error) {
-    console.error('Error generating resume-based feedback:', error);
+    console.error('Error generating resume feedback:', error);
     res.status(500).json({ error: 'Failed to generate feedback' });
   }
 } 

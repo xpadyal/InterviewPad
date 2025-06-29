@@ -1,8 +1,4 @@
-import OpenAI from 'openai';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import { generateTextGroq } from '../../utils/groq';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -16,65 +12,49 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Original question and response are required' });
     }
 
-    const prompt = `You are an expert HR professional conducting a behavioral interview. Based on the candidate's response to the original question, generate ${followUpCount} relevant follow-up questions that will help you better understand their experience and capabilities.
+    const prompt = `You are an expert HR professional generating follow-up questions for a behavioral interview.
 
-Original Question: "${originalQuestion}"
+ORIGINAL QUESTION:
+${originalQuestion}
 
-Candidate's Response: "${response}"
+CANDIDATE'S RESPONSE:
+${response}
 
 Generate ${followUpCount} follow-up questions that:
-1. Are specific and relevant to the candidate's response
-2. Help clarify details or explore deeper aspects
-3. Assess different dimensions of their experience
-4. Are open-ended and encourage detailed responses
-5. Follow good behavioral interviewing practices
+- Probe deeper into the candidate's response
+- Ask for more specific details or examples
+- Challenge assumptions or explore alternative scenarios
+- Help assess the candidate's critical thinking and problem-solving skills
+- Are relevant to the original question and response
 
-Return the questions as a JSON array:
-["question1", "question2", "question3"]`;
+Format as a JSON array of strings, where each string is a follow-up question.`;
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        {
-          role: "system",
-          content: "You are an expert HR professional and interview coach with 15+ years of experience. You specialize in behavioral interviewing and know how to ask insightful follow-up questions that help assess candidates' real-world experience and competencies."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 800,
-    });
-
-    const response_text = completion.choices[0].message.content;
+    const response_text = await generateTextGroq(prompt, 500);
     
-    // Parse the JSON response
+    // Try to parse JSON from the response
     let followUpQuestions;
     try {
-      followUpQuestions = JSON.parse(response_text);
+      const jsonMatch = response_text.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        followUpQuestions = JSON.parse(jsonMatch[0]);
+      } else {
+        // If no JSON found, split by lines and clean up
+        const lines = response_text.split('\n').filter(line => line.trim());
+        followUpQuestions = lines
+          .map(line => line.replace(/^\d+\.\s*/, '').replace(/^["']|["']$/g, ''))
+          .filter(line => line.length > 10 && line.includes('?'))
+          .slice(0, followUpCount);
+      }
     } catch (parseError) {
-      // If JSON parsing fails, try to extract questions from the response
-      const lines = response_text.split('\n').filter(line => line.trim());
-      followUpQuestions = lines
-        .map(line => line.replace(/^\d+\.\s*/, '').replace(/^["']|["']$/g, ''))
-        .filter(line => line.length > 10 && line.includes('?'))
+      console.error('Failed to parse JSON response:', parseError);
+      // Fallback: return the raw response split into questions
+      followUpQuestions = response_text.split('\n')
+        .filter(line => line.trim() && line.includes('?'))
+        .map(line => line.replace(/^\d+\.\s*/, '').trim())
         .slice(0, followUpCount);
     }
 
-    // Ensure we have valid questions
-    if (!Array.isArray(followUpQuestions) || followUpQuestions.length === 0) {
-      throw new Error('Failed to generate valid follow-up questions');
-    }
-
-    // Limit to requested count
-    followUpQuestions = followUpQuestions.slice(0, followUpCount);
-
-    res.status(200).json({ 
-      followUpQuestions,
-      count: followUpQuestions.length
-    });
+    res.status(200).json({ followUpQuestions });
   } catch (error) {
     console.error('Error generating follow-up questions:', error);
     res.status(500).json({ error: 'Failed to generate follow-up questions' });

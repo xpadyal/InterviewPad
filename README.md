@@ -43,11 +43,13 @@ A comprehensive interview preparation platform that combines coding challenges w
 
 ### Backend
 - **Next.js API Routes**: Serverless API endpoints
-- **OpenAI GPT-4**: AI-powered question generation, feedback, and follow-ups
+- **Groq API**: AI-powered question generation, feedback, and follow-ups using Llama-3.3-70B (ultra-fast)
+- **Judge0 API**: Code execution and testing via RapidAPI
 - **Node.js**: JavaScript runtime environment
 
 ### External APIs
-- **OpenAI API**: GPT-4 for intelligent question generation and feedback
+- **Groq API**: Llama-3.3-70B for intelligent question generation and feedback (ultra-fast inference)
+- **Judge0 API**: Code execution and testing for multiple programming languages
 - **Web Speech API**: Browser-native speech recognition and synthesis
 
 ## 📦 Installation
@@ -66,15 +68,26 @@ A comprehensive interview preparation platform that combines coding challenges w
 3. **Set up environment variables**:
    Create a `.env.local` file in the root directory:
    ```env
-   OPENAI_API_KEY=your_openai_api_key_here
+   # Groq API Key (Ultra-fast inference)
+   GROQ_API_KEY=your_groq_api_key_here
+   # RapidAPI Key for Judge0 code execution (optional - for coding interviews)
+   RAPIDAPI_KEY=your_rapidapi_key_here
    ```
 
-4. **Run the development server**:
+4. **Get your Groq API key**:
+   - Go to [Groq Console](https://console.groq.com/)
+   - Sign up for a free account
+   - Go to [API Keys](https://console.groq.com/keys)
+   - Create a new key
+   - Copy the key to your `.env.local` file
+   - The app uses the ultra-fast Llama-3.3-70B model by default
+
+5. **Run the development server**:
    ```bash
    npm run dev
    ```
 
-5. **Open your browser**:
+6. **Open your browser**:
    Navigate to `http://localhost:3000`
 
 ## 🎯 Usage
@@ -188,32 +201,5 @@ Interview_Agent/
 
 Required environment variables:
 ```env
-OPENAI_API_KEY=your_openai_api_key_here
+GROQ_API_KEY=your_groq_api_key_here
 ```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- OpenAI for GPT-4 API
-- Web Speech API for voice capabilities
-- Next.js team for the amazing framework
-- Tailwind CSS for the utility-first styling
-
-## 📞 Support
-
-For support, email support@interviewpad.com or create an issue in this repository.
-
----
-
-**Built with ❤️ for interview preparation** 

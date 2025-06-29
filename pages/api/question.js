@@ -1,6 +1,4 @@
-import OpenAI from 'openai';
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+import { generateTextGroq } from '../../utils/groq';
 
 const DIFFICULTY_MAP = {
   easy: 'easy',
@@ -15,18 +13,14 @@ export default async function handler(req, res) {
   const level = DIFFICULTY_MAP[(difficulty || '').toLowerCase()] || 'easy';
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [
-        { role: 'system', content: `You are a professional coding interviewer. Generate a Leetcode-style coding question of ${level} difficulty. Return only a JSON object with the following fields: title, description, constraints (array), and examples (array of {input, output, explanation}). Do not include any explanation or extra text outside the JSON.` },
-        { role: 'user', content: `Generate a ${level} Leetcode-style coding question.` },
-      ],
-      temperature: 0.7,
-      max_tokens: 512,
-    });
+    const prompt = `You are a professional coding interviewer. Generate a Leetcode-style coding question of ${level} difficulty. Return only a JSON object with the following fields: title, description, constraints (array), and examples (array of {input, output, explanation}). Do not include any explanation or extra text outside the JSON.
+
+Generate a ${level} Leetcode-style coding question.`;
+
+    const response = await generateTextGroq(prompt, 512);
 
     // Try to extract JSON from the response
-    const match = completion.choices[0].message.content.match(/\{[\s\S]*\}/);
+    const match = response.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('No JSON found in response');
     const question = JSON.parse(match[0]);
     res.status(200).json({ question });
