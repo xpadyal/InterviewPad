@@ -36,17 +36,23 @@ export default function QuestionPanel({ question, questionLoading }) {
           </ul>
         </div>
       )}
-      {tab === 'examples' && question.examples && question.examples.length > 0 && (
-        <div className={styles.examples}>
-          <b>Examples:</b>
-          {question.examples.map((ex, i) => (
-            <div className={styles.exampleBox} key={i}>
-              <div><span className={styles.exampleInput}><b>Input:</b> {ex.input}</span></div>
-              <div><span className={styles.exampleOutput}><b>Output:</b> {ex.output}</span></div>
-              {ex.explanation && <div className={styles.exampleExplanation}><b>Explanation:</b> {ex.explanation}</div>}
-            </div>
-          ))}
-        </div>
+      {tab === 'examples' && (
+        question.examples && question.examples.length > 0 ? (
+          <div className={styles.examples}>
+            <b>Examples:</b>
+            {question.examples.map((ex, i) => (
+              <div className={styles.exampleBox} key={i}>
+                <div><span className={styles.exampleInput}><b>Input:</b> {ex.input}</span></div>
+                <div><span className={styles.exampleOutput}><b>Output:</b> {ex.output}</span></div>
+                {ex.explanation && <div className={styles.exampleExplanation}><b>Explanation:</b> {ex.explanation}</div>}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className={styles.examples} style={{ color: 'var(--text-secondary, #a1a1aa)', padding: '1rem' }}>
+            No valid examples available for this question.
+          </div>
+        )
       )}
     </div>
   );
